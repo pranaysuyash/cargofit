@@ -16,8 +16,10 @@
     "deploy": "wrangler pages deploy dist --project-name=cargofit --branch=main"
   },
   "dependencies": {
+    "@types/three": "^0.186.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

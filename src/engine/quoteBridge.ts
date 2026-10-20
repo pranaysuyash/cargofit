@@ -5,7 +5,15 @@
 
 import type { PlanFile } from './report';
 
-export function buildFreightQuoteUrl(plan: PlanFile, baseUrl = 'http://localhost:5174'): string {
+export function getFreightPricingBaseUrl(): string {
+  if (typeof window !== 'undefined' && window.location.hostname.includes('pages.dev')) {
+    return 'https://freightpricing.pages.dev';
+  }
+  return 'http://localhost:5174';
+}
+
+export function buildFreightQuoteUrl(plan: PlanFile, baseUrl?: string): string {
+  const targetBase = baseUrl || getFreightPricingBaseUrl();
   const m = plan.metrics;
   const eqName = (plan.scenario.equipment.find((e) => e.id === plan.equipmentId)?.name || '').toLowerCase();
 
@@ -45,5 +53,5 @@ export function buildFreightQuoteUrl(plan: PlanFile, baseUrl = 'http://localhost
     reefer: isReefer ? '1' : '0',
   });
 
-  return `${baseUrl}/?${params.toString()}`;
+  return `${targetBase}/?${params.toString()}`;
 }
