@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { cargoToCsv, importCargoCsv, type ImportIssue } from '../engine/csv';
 import { blankRow } from '../engine/scenario';
 import { LENGTH_UNITS, MASS_UNITS, fmtNum, toKg, toMm } from '../engine/units';
+import { renderCargo3D } from '../engine/viz';
 import type { CargoRow, InputIssue, RotationRule } from '../engine/types';
 import type { AppApi } from './App';
 import { NumInput, download } from './common';
@@ -11,6 +12,9 @@ export function CargoStep(p: AppApi) {
   const { scenario, setScenario, issues, readOnly } = p;
   const [imp, setImp] = useState<{ name: string; issues: ImportIssue[]; count: number } | null>(null);
   const [drag, setDrag] = useState(false);
+  const [inspectUid, setInspectUid] = useState<string | null>(null);
+  const [orientIdx, setOrientIdx] = useState(0);
+  const [yawDeg, setYawDeg] = useState(35);
   const fileRef = useRef<HTMLInputElement>(null);
   const disabled = !!readOnly;
 
@@ -113,7 +117,10 @@ export function CargoStep(p: AppApi) {
                       <option value="fixed">Fixed (as entered)</option><option value="upright">Upright (turn flat only)</option><option value="any">Any orientation</option></select></td>
                     <td><select aria-label={`Row ${i + 1} stacking`} disabled={disabled} value={r.stackable ? 'yes' : 'no'} onChange={(e) => update(r.uid, { stackable: e.target.value === 'yes' })}><option value="yes">Stackable</option><option value="no">No-stack</option></select></td>
                     <td className="mono dim conv">{mm ? `${fmtNum(mm[0], 0)}×${fmtNum(mm[1], 0)}×${fmtNum(mm[2], 0)}` : '—'}{r.weight && r.weight > 0 ? ` · ${fmtNum(toKg(r.weight, r.weightUnit), 1)} kg` : ''}</td>
-                    <td><button className="btn sm ghost" aria-label={`Remove row ${i + 1}`} disabled={disabled} onClick={() => setScenario((s) => ({ ...s, rows: s.rows.filter((x) => x.uid !== r.uid) }))}>✕</button></td>
+                    <td className="actions-cell">
+                      <button className={`btn sm ${inspectUid === r.uid ? 'primary' : 'ghost'}`} title="Inspect 3D box and allowed orientations" onClick={() => { setInspectUid(inspectUid === r.uid ? null : r.uid); setOrientIdx(0); }}>3D</button>
+                      <button className="btn sm ghost" aria-label={`Remove row ${i + 1}`} disabled={disabled} onClick={() => setScenario((s) => ({ ...s, rows: s.rows.filter((x) => x.uid !== r.uid) }))}>✕</button>
+                    </td>
                   </tr>
                 );
               })}
@@ -121,6 +128,82 @@ export function CargoStep(p: AppApi) {
           </table>
         </div>
       )}
+
+      {inspectUid && (() => {
+        const r = scenario.rows.find((x) => x.uid === inspectUid);
+        if (!r || !r.length || !r.width || !r.height) return null;
+        const lMm = toMm(r.length, r.dimUnit);
+        const wMm = toMm(r.width, r.dimUnit);
+        const hMm = toMm(r.height, r.dimUnit);
+        let orients: [number, number, number][];
+        if (r.rotation === 'fixed') orients = [[lMm, wMm, hMm]];
+        else if (r.rotation === 'upright') orients = [[lMm, wMm, hMm], [wMm, lMm, hMm]];
+        else orients = [[lMm, wMm, hMm], [wMm, lMm, hMm], [lMm, hMm, wMm], [hMm, lMm, wMm], [wMm, hMm, lMm], [hMm, wMm, lMm]];
+        // dedup
+        const seen = new Set<string>();
+        const uniqueOrients = orients.filter((d) => {
+          const k = d.map((v) => Math.round(v)).join('x');
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        const curOrient = uniqueOrients[orientIdx % uniqueOrients.length] || [lMm, wMm, hMm];
+        const [curL, curW, curH] = curOrient;
+        const volM3 = (curL * curW * curH) / 1e9;
+        const weightKg = r.weight ? toKg(r.weight, r.weightUnit) : null;
+        const density = weightKg !== null && volM3 > 0 ? weightKg / volM3 : null;
+
+        const svg3d = renderCargo3D({
+          length: curL,
+          width: curW,
+          height: curH,
+          stackable: r.stackable,
+          rotation: r.rotation,
+          yawDeg,
+          label: r.label,
+          weightKg,
+        });
+
+        return (
+          <div className="panel cargo-3d-panel" role="region" aria-label="3D Cargo Inspection">
+            <div className="panel-h">
+              <b>3D Spatial Inspection · {r.label || 'Selected Cargo'}</b>
+              <div className="actions">
+                <button className="btn sm ghost" onClick={() => setYawDeg((y) => (y - 30 + 360) % 360)}>⟲ Rotate -30°</button>
+                <button className="btn sm ghost" onClick={() => setYawDeg((y) => (y + 30) % 360)}>⟳ Rotate +30°</button>
+                <button className="btn sm ghost" onClick={() => setInspectUid(null)}>✕ Close 3D</button>
+              </div>
+            </div>
+
+            <div className="cargo-3d-grid">
+              <div className="cargo-svg-card" dangerouslySetInnerHTML={{ __html: svg3d }} />
+              <div className="cargo-details-card">
+                <div className="orient-section">
+                  <span className="card-lbl">Allowed Orientations ({uniqueOrients.length} for {r.rotation} rule)</span>
+                  <div className="orient-pills">
+                    {uniqueOrients.map((o, idx) => (
+                      <button key={idx} className={`btn sm ${idx === (orientIdx % uniqueOrients.length) ? 'primary' : 'ghost'}`}
+                        onClick={() => setOrientIdx(idx)}>
+                        {Math.round(o[0])} × {Math.round(o[1])} × {Math.round(o[2])} mm
+                        {idx === 0 ? ' (entered)' : ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="physical-specs-grid">
+                  <div><span>Placed Size</span><b>{fmtNum(curL, 0)} × {fmtNum(curW, 0)} × {fmtNum(curH, 0)} mm</b></div>
+                  <div><span>Footprint Area</span><b>{fmtNum((curL * curW) / 1e6, 3)} m²</b></div>
+                  <div><span>Volume</span><b>{fmtNum(volM3, 3)} m³ ({fmtNum(volM3 * 35.3147, 1)} ft³)</b></div>
+                  <div><span>Unit Weight</span><b>{weightKg !== null ? `${fmtNum(weightKg, 1)} kg` : 'unknown'}</b></div>
+                  <div><span>Est. Density</span><b>{density !== null ? `${fmtNum(density, 0)} kg/m³` : 'n/a (unknown wt)'}</b></div>
+                  <div><span>Top Surface</span><b className={r.stackable ? 'ok-t' : 'bad-t'}>{r.stackable ? '✓ Stackable' : '⚠ No-Stack Surface'}</b></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="summary">
         <div><b className="mono">{totalUnits}</b><span>units in {scenario.rows.length} row(s)</span></div>

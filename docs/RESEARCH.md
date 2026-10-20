@@ -72,3 +72,64 @@
 - **Linear (`linear.app`):** High information density, subtle OKLCH neutral palette, persistent status indicators, keyboard-accessible operations.
 - **Figma / Spline (`spline.design`):** Canvas with inspectable object properties panel, real-time spatial manipulation, coordinate readouts.
 - **Vercel Geist (`vercel.com`):** Monospace numerical precision, dual-unit disclosures, high contrast table hierarchy.
+
+---
+
+## 6. Interactive Spatial Rotation, Allowed Orientations & Stability Mechanics
+
+### 6.1 Rotation Rules & Degrees of Freedom
+In freight transport, items cannot be flipped arbitrarily. Physical orientation policies are dictated by internal contents, labeling (e.g. "THIS SIDE UP"), structural box fluting, and pallet skid bases:
+1. **Fixed (`none` / 1 orientation):** Item must be loaded exactly as entered $[L, W, H]$. Critical for machinery with top exhaust/fluid reservoirs, upright appliances (refrigerators), and fragile glassware.
+2. **Upright (`yaw_only` / 2 orientations):** Item may be rotated $90^\circ$ around the vertical $Z$ axis (yaw): $[L, W, H]$ and $[W, L, H]$. Height remains vertical. This is standard for EUR pallets ($1200 \times 800$ mm) and ISO pallets ($1200 \times 1000$ mm) loaded two-wide or pinwheeled to fill trailer widths ($2450$ mm).
+3. **Any (`any` / 6 permutations):** Symmetrical sturdy boxes, uniform cartons, or soft parcels that may rest on any of their 6 faces: $[L, W, H]$, $[W, L, H]$, $[L, H, W]$, $[H, L, W]$, $[W, H, L]$, $[H, W, L]$.
+
+### 6.2 Base Support & Gravity Thresholds
+Under real road vibration (typically $0.2g$–$0.5g$ vertical acceleration, ASTM D4169), an item resting partially on another item will tip or crush corners if overhang is excessive:
+- **100% Support Policy:** Conservative standard; requires the entire base footprint of an elevated item to be supported by solid surfaces (floor or stack tops).
+- **80% Support Policy:** Industry standard for interlocking carton layers; allows up to 20% bridging over internal air gaps between pallets.
+- **No-Stack Surface Enforcement:** Items flagged as `stackable: false` cannot bear weight on their top face, preventing crushing of delicate goods or pyramid-shaped pallet tops.
+
+---
+
+## 7. Multi-Strategy Fit Exploration: The Search for the "Best Way to Fit"
+
+There is no single "best" load plan because conflicting operational objectives exist:
+1. **The Maximum-Volume / Tightest Packing Goal:**
+   - *Heuristic:* Sort by volume descending or longest edge descending; pack using front-first corner coordinates.
+   - *Advantage:* Minimizes overall length consumed, leaving contiguous space near the rear door for future cargo.
+   - *Trade-off:* May create top-heavy stacks or mix drop stops indiscriminately.
+2. **The Low Center-of-Gravity (Low-COG) / Heavy-First Goal:**
+   - *Heuristic:* Sort by weight descending; pack using floor-first placement. Dense cargo ($> 500\text{ kg/m}^3$) is forced to the floor bed, and lighter cargo sits on top.
+   - *Advantage:* Maximizes roll stability on highway curves; reduces tip-over risk during sudden avoidance maneuvers.
+   - *Trade-off:* May leave voids under high-density machinery that cannot support other boxes.
+3. **The Multi-Stop / Reverse-Drop (FIFO) Goal:**
+   - *Heuristic:* Sort by delivery stop order descending (Stop 3 first, Stop 2 second, Stop 1 last near the rear door).
+   - *Advantage:* Cargo for Stop 1 is immediately accessible without double-handling or staging freight on a dock.
+   - *Trade-off:* Can reduce overall volumetric density by up to 10–15% compared to pure geometric nesting.
+
+Cargo Fit presents these alternative heuristics side-by-side in the **Arrangement Strategy Switcher**, displaying placed counts, remaining length, and center-of-gravity metrics for each candidate so the logistics planner can select the appropriate operational compromise.
+
+---
+
+## 8. Door Bottleneck & Cargo Ingress Dynamics
+
+A frequent real-world failure mode is cargo that geometrically fits inside the trailer bay ($W_{item} \le W_{trailer}$ and $H_{item} \le H_{trailer}$) but cannot pass through the rear door frame:
+- Dry van roll-up doors often reduce effective vertical aperture by 75–125 mm (3–5 in) compared to swing doors.
+- High-cube trailers with interior height of 2,790 mm typically have door openings of 2,690 mm (a 100 mm bottleneck header).
+- Refrigerated (reefer) trailers have thicker insulated sidewalls and door gaskets, reducing door width by 100–150 mm.
+
+Cargo Fit models door width and door height independently from interior space, rendering warning highlights and explicitly flagging `DOOR_BOTTLENECK` violations before the truck arrives at the loading bay.
+
+---
+
+## 9. Axle Load Mechanics & The Federal Bridge Formula
+
+While pure geometric bin packing models boxes in a static 3D Cartesian box, heavy vehicle road operations are governed by axle group statutory limits:
+- **US Federal Bridge Formula B:**
+  $$W = 500 \left( \frac{L \cdot N}{N - 1} + 12N + 36 \right)$$
+  Where $W$ is maximum gross weight, $L$ is distance between outer axles of any group, and $N$ is number of axles.
+- **Static Moment Balance:**
+  The forward/rear axle load distribution is determined by the longitudinal centroid $X_{CoG}$:
+  $$F_{rear} = W_{total} \cdot \frac{X_{CoG} - X_{kingpin}}{L_{wheelbase}}$$
+  Excessive weight placed ahead of the kingpin overloads the tractor drive tandem; excessive weight behind the trailer bogie overloads the trailer tandem and unweights the steer axle.
+- **Cargo Fit Boundary:** Cargo Fit computes and displays the longitudinal centroid $X_{CoG}$ as an **informational metric** ($X\%$ of length), but strictly refuses to issue "DOT axle certified" claims because tire inflation, suspension air-bag equalization, slider bogie positioning, and fuel tank levels are unmodeled by static box geometry.
