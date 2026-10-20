@@ -8,6 +8,7 @@ import { validatePlacements, EPS } from '../engine/validator';
 import { evaluateBridgeCompliance } from '../engine/bridge';
 import { computeSecurementPlan } from '../engine/securement';
 import { verifyBarcodeMatch } from '../engine/barcode';
+import { CameraScanner } from './CameraScanner';
 import type { Placement } from '../engine/types';
 import type { AppApi } from './App';
 import { NumInput, StatusBadge } from './common';
@@ -39,6 +40,7 @@ export function PlanStep(p: AppApi) {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [scanStatus, setScanStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [showScanner, setShowScanner] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const vref = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
   const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -425,8 +427,38 @@ export function PlanStep(p: AppApi) {
                       className={`btn sm ${showScanner ? 'primary' : 'ghost'}`}
                       onClick={() => setShowScanner(!showScanner)}
                     >
-                      📷 {showScanner ? 'Close Scanner' : 'Scan Pallet Barcode'}
+                      ⌨ {showScanner ? 'Hide Manual Input' : 'Scan Pallet Barcode'}
                     </button>
+                    <button
+                      type="button"
+                      className={`btn sm ${showCamera ? 'primary' : ''}`}
+                      onClick={() => setShowCamera(true)}
+                      title="Open device camera for optical barcode/QR detection"
+                    >
+                      🎥 Live Camera Scanner
+                    </button>
+
+                    {showCamera && activeStepUnit && (
+                      <CameraScanner
+                        targetUnitId={activeStepUnit.unitId}
+                        targetSkuLabel={activeStepUnit.label}
+                        onClose={() => setShowCamera(false)}
+                        onScan={(scannedCode) => {
+                          const res = verifyBarcodeMatch(scannedCode, activeStepUnit.unitId, activeStepUnit.label);
+                          if (res.matched) {
+                            setScanStatus({ ok: true, msg: `✓ Camera tag verified: ${activeStepUnit.unitId}` });
+                            const next = currentStepNum + 1;
+                            setUpTo(next >= working.length ? null : next);
+                            const targetUnit = working.find((w) => w.order === next);
+                            if (targetUnit) setSel(targetUnit.unitId);
+                            setShowCamera(false);
+                            setTimeout(() => setScanStatus(null), 3500);
+                          } else {
+                            setScanStatus({ ok: false, msg: `⚠ Scanned code "${scannedCode}" mismatch for ${activeStepUnit.unitId}` });
+                          }
+                        }}
+                      />
+                    )}
                     {showScanner && (
                       <form
                         className="dock-barcode-form"
