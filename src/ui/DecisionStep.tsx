@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { recommendFleet } from '../engine/fleet';
+import { expandUnits } from '../engine/normalize';
 import { diffResults, diffRows, summarize } from '../engine/scenario';
 import { fmtNum, toMm } from '../engine/units';
 import type { EquipmentProfile, EquipmentResult } from '../engine/types';
@@ -40,6 +42,9 @@ export function DecisionStep(p: AppApi) {
   const fitCount = results.filter((r) => r.status === 'FEASIBLE_UNDER_MODELED_CONSTRAINTS').length;
   const row = scenario.rows.find((r) => r.uid === whatRow) ?? scenario.rows[0];
   const edit = (fn: (s: typeof scenario) => typeof scenario) => p.setScenario(fn);
+
+  const units = useMemo(() => expandUnits(scenario.rows), [scenario.rows]);
+  const fleet = useMemo(() => recommendFleet(units, scenario.equipment), [units, scenario.equipment]);
 
   const rowDiff = baseline ? diffRows(baseline.scenario.rows, scenario.rows) : [];
   const resDiff = baseline ? diffResults(baseline.summaries, results.map(summarize)) : [];
@@ -122,6 +127,39 @@ export function DecisionStep(p: AppApi) {
             </ol>
             {ranking.unranked.length > 0 && <p className="muted small">Not ranked (evidence missing for “{CRIT[crit]}”): {ranking.unranked.map((x) => x.r.equipmentName).join(', ')}. {crit === 'cost' ? 'Enter your own cost per option in step 02 — there is no live quote feed.' : crit === 'margin' ? 'Needs a declared payload and no unknown weights.' : ''}</p>}
           </div>
+
+          {fleet.allocations.length > 0 && (
+            <div className="panel fleet-panel" role="region" aria-label="Fleet Allocation Splitter">
+              <div className="panel-h">
+                <b>Fleet Allocation & Multi-Vehicle Splitter</b>
+                <span>When cargo exceeds one truck or requires multi-vehicle distribution</span>
+              </div>
+              <p className="sub small">
+                Total manifest: <b>{fleet.totalUnits}</b> units · <b>{fmtNum(fleet.totalVolumeM3, 1)} m³</b> · <b>{fmtNum(fleet.totalWeightKg, 0)} kg</b>.
+                {fitCount === 0 ? ' No single vehicle fits this entire load.' : ` Fits in ${fitCount} single vehicle(s), or split across optimal fleet below:`}
+              </p>
+              <div className="fleet-card-grid">
+                {fleet.allocations.map((a) => (
+                  <div key={a.vehicleId} className="fleet-alloc-card">
+                    <div className="fleet-alloc-h">
+                      <span className="fleet-badge mono">{a.count}×</span>
+                      <b>{a.vehicleName}</b>
+                    </div>
+                    <div className="fleet-alloc-stats">
+                      <div><span>Assigned Units:</span> <b className="mono">{a.assignedUnitIds.length}</b></div>
+                      <div><span>Volume:</span> <b className="mono">{fmtNum(a.totalVolumeM3, 1)}/{fmtNum(a.volumeCapacityM3, 1)} m³ ({a.volumeUtilizationPct}%)</b></div>
+                      {a.payloadCapacityKg && <div><span>Payload:</span> <b className="mono">{fmtNum(a.totalWeightKg, 0)}/{fmtNum(a.payloadCapacityKg, 0)} kg ({a.payloadUtilizationPct}%)</b></div>}
+                      {a.estimatedCost !== null && <div><span>Est. Cost:</span> <b className="mono">{fmtNum(a.estimatedCost, 0)} {a.currency}</b></div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="fleet-summary-bar">
+                <b>{fleet.summary}</b>
+                {fleet.totalCost !== null && <span>Estimated Fleet Cost: <b className="mono">{fmtNum(fleet.totalCost, 0)} {fleet.currency}</b></span>}
+              </div>
+            </div>
+          )}
 
           <div className="panel">
             <div className="panel-h"><b>What-if</b><span>edits recompute every option; pin a baseline first to see exactly what changed</span></div>

@@ -52,7 +52,7 @@ export function parseCsv(text: string, delimiter: string): string[][] {
   return out;
 }
 
-type Field = 'label' | 'qty' | 'length' | 'width' | 'height' | 'unit' | 'weight' | 'wunit' | 'rotation' | 'stackable';
+type Field = 'label' | 'qty' | 'length' | 'width' | 'height' | 'unit' | 'weight' | 'wunit' | 'rotation' | 'stackable' | 'stop';
 const ALIASES: Record<Field, string[]> = {
   label: ['label', 'id', 'name', 'sku', 'item', 'identifier', 'description', 'itemid'],
   qty: ['qty', 'quantity', 'count', 'pcs', 'pieces', 'units'],
@@ -64,6 +64,7 @@ const ALIASES: Record<Field, string[]> = {
   wunit: ['weightunit', 'wunit', 'massunit', 'wtunit'],
   rotation: ['rotation', 'orientation', 'rotate', 'rotationrule'],
   stackable: ['stackable', 'stack', 'canstack'],
+  stop: ['stop', 'drop', 'destination', 'droporder', 'unloadorder', 'stopnum', 'stopnumber'],
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/\([^)]*\)/g, '').replace(/[^a-z0-9]/g, '');
@@ -76,9 +77,7 @@ function parseNumber(raw: string): number | null | 'bad' {
   return Number.isFinite(n) ? n : 'bad';
 }
 
-export function importCargoCsv(text: string): ImportResult {
-  const delimiter = detectDelimiter(text);
-  const table = parseCsv(text, delimiter);
+export function importCargoTable(table: string[][], delimiter = ','): ImportResult {
   const issues: ImportIssue[] = [];
   if (table.length === 0) {
     return { rows: [], issues: [{ line: 0, field: 'file', severity: 'error', message: 'File is empty.' }], delimiter, totalLines: 0 };
@@ -148,13 +147,24 @@ export function importCargoCsv(text: string): ImportResult {
       else if (['no', 'n', 'false', '0', 'no-stack', 'nostack', 'fragile'].includes(sr)) stackable = false;
       else issues.push({ line, field: 'stackable', severity: 'warning', message: `Unknown stackable value "${sr}" — treated as no-stack.` });
     } else if (col.has('stackable')) issues.push({ line, field: 'stackable', severity: 'info', message: 'Blank stackable — treated as no-stack (conservative).' });
+    
+    const stopVal = col.has('stop') ? num('stop') : null;
+    const stop = stopVal !== null && stopVal > 0 ? Math.round(stopVal) : null;
+
     rows.push({
       uid: newUid(), label: get(r, 'label').trim(), qty: qtyRaw,
       length: num('length'), width: num('width'), height: num('height'), dimUnit,
       weight: col.has('weight') ? num('weight') : null, weightUnit, rotation, stackable,
+      stop,
     });
   }
   return { rows, issues, delimiter, totalLines: table.length - 1 };
+}
+
+export function importCargoCsv(text: string): ImportResult {
+  const delimiter = detectDelimiter(text);
+  const table = parseCsv(text, delimiter);
+  return importCargoTable(table, delimiter);
 }
 
 const esc = (v: string | number | null) => {
@@ -163,8 +173,14 @@ const esc = (v: string | number | null) => {
 };
 
 export function cargoToCsv(rows: CargoRow[]): string {
-  const head = 'label,qty,length,width,height,dim_unit,weight,weight_unit,rotation,stackable';
-  const lines = rows.map((r) =>
-    [r.label, r.qty, r.length, r.width, r.height, r.dimUnit, r.weight, r.weightUnit, r.rotation, r.stackable ? 'yes' : 'no'].map(esc).join(','));
+  const hasStop = rows.some((r) => r.stop !== undefined && r.stop !== null);
+  const head = hasStop
+    ? 'label,qty,length,width,height,dim_unit,weight,weight_unit,rotation,stackable,stop'
+    : 'label,qty,length,width,height,dim_unit,weight,weight_unit,rotation,stackable';
+  const lines = rows.map((r) => {
+    const base = [r.label, r.qty, r.length, r.width, r.height, r.dimUnit, r.weight, r.weightUnit, r.rotation, r.stackable ? 'yes' : 'no'];
+    if (hasStop) base.push(r.stop ?? '');
+    return base.map(esc).join(',');
+  });
   return [head, ...lines].join('\n') + '\n';
 }

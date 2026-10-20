@@ -24,6 +24,8 @@ export interface CargoRow {
   rotation: RotationRule;
   /** false = nothing may be placed on top (fragile / no-stack) */
   stackable: boolean;
+  /** Delivery drop sequence (1 = first stop / unloaded first; higher = later stops) */
+  stop?: number | null;
 }
 
 export type CostSource = 'none' | 'user' | 'illustrative';
@@ -85,6 +87,7 @@ export interface Unit {
   weightKg: number | null;
   rotation: RotationRule;
   stackable: boolean;
+  stop?: number | null;
 }
 
 export interface NormalizedEquipment {
@@ -110,6 +113,8 @@ export interface Placement {
   dz: number;
   /** loading order, 1-based; placement order in the solver */
   order: number;
+  /** Delivery drop sequence (if declared) */
+  stop?: number | null;
 }
 
 export type ResultStatus =
@@ -152,6 +157,7 @@ export interface Violation {
     | 'PAYLOAD_EXCEEDED'
     | 'DOOR_BLOCKED'
     | 'DUPLICATE_PLACEMENT'
+    | 'STOP_ACCESS_BLOCKED'
     | 'UNKNOWN_UNIT';
   unitIds: string[];
   message: string;
@@ -161,6 +167,15 @@ export interface Arrangement {
   name: string;
   placements: Placement[];
   unplacedIds: string[];
+}
+
+export interface AxleEstimate {
+  steerKg: number;
+  driveKg: number;
+  trailerKg: number;
+  steerPct: number;
+  drivePct: number;
+  trailerPct: number;
 }
 
 export interface Metrics {
@@ -176,6 +191,14 @@ export interface Metrics {
   usedLengthMm: number;
   /** informational only: weight-weighted x centroid as % of interior length */
   cogXPct: number | null;
+  /** longitudinal centroid in mm from front wall */
+  cogX?: number | null;
+  /** lateral centroid in mm from left wall */
+  cogY?: number | null;
+  /** vertical centroid in mm from floor */
+  cogZ?: number | null;
+  /** preliminary beam-reaction axle load estimation for standard highway rigs */
+  axleEst?: AxleEstimate | null;
 }
 
 export type CheckState = 'verified' | 'not_modeled' | 'not_declared' | 'unknown';
@@ -184,6 +207,18 @@ export interface ModeledCheck {
   label: string;
   state: CheckState;
   note: string;
+}
+
+export interface MultiStopStage {
+  stage: number;
+  stop: number;
+  label: string;
+  remainingUnits: number;
+  remainingWeightKg: number;
+  cogX: number | null;
+  cogXPct: number | null;
+  axleEst: AxleEstimate | null;
+  warning?: string | null;
 }
 
 export interface EquipmentResult {
@@ -198,6 +233,7 @@ export interface EquipmentResult {
   metrics: Metrics;
   violations: Violation[];
   checks: ModeledCheck[];
+  multiStopStages?: MultiStopStage[];
   solver: {
     version: string;
     seed: number;

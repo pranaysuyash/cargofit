@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
-import { cargoToCsv, importCargoCsv, type ImportIssue } from '../engine/csv';
+import { cargoToCsv, importCargoCsv, importCargoTable, type ImportIssue } from '../engine/csv';
+import { parseXlsx, type XlsxWorkbook } from '../engine/xlsx';
 import { blankRow } from '../engine/scenario';
 import { LENGTH_UNITS, MASS_UNITS, fmtNum, toKg, toMm } from '../engine/units';
 import { renderCargo3D } from '../engine/viz';
@@ -11,6 +12,7 @@ import { SAMPLES, sampleScenario } from './samples';
 export function CargoStep(p: AppApi) {
   const { scenario, setScenario, issues, readOnly } = p;
   const [imp, setImp] = useState<{ name: string; issues: ImportIssue[]; count: number } | null>(null);
+  const [sheetPicker, setSheetPicker] = useState<{ fileName: string; workbook: XlsxWorkbook } | null>(null);
   const [drag, setDrag] = useState(false);
   const [inspectUid, setInspectUid] = useState<string | null>(null);
   const [orientIdx, setOrientIdx] = useState(0);
@@ -38,9 +40,39 @@ export function CargoStep(p: AppApi) {
     const bad = r.issues.filter((i) => i.severity === 'error').length;
     p.notify(bad ? 'warn' : 'ok', `Imported ${r.rows.length} row(s) from ${name}${bad ? ` — ${bad} cell(s) need repair below` : ''}.`);
   };
+
+  const importTable = (fileName: string, sheetName: string, table: string[][], mode: 'replace' | 'append') => {
+    const r = importCargoTable(table);
+    setImp({ name: `${fileName} [${sheetName}]`, issues: r.issues, count: r.rows.length });
+    if (r.rows.length === 0) {
+      p.notify('err', `No valid cargo rows imported from sheet "${sheetName}": ${r.issues[0]?.message ?? 'empty sheet'}`);
+      return;
+    }
+    setScenario((s) => ({ ...s, rows: mode === 'replace' ? r.rows : [...s.rows, ...r.rows] }));
+    const bad = r.issues.filter((i) => i.severity === 'error').length;
+    p.notify(bad ? 'warn' : 'ok', `Imported ${r.rows.length} row(s) from "${sheetName}" in ${fileName}${bad ? ` — ${bad} cell(s) need repair below` : ''}.`);
+  };
+
   const onFile = async (f: File | undefined | null) => {
     if (!f) return;
-    if (/\.xlsx?$/i.test(f.name)) { p.notify('warn', 'Excel files are not read directly yet. Export the sheet as CSV (File → Save As → CSV) and import that.'); return; }
+    if (/\.xlsx?$/i.test(f.name)) {
+      try {
+        const buf = await f.arrayBuffer();
+        const wb = await parseXlsx(buf);
+        if (wb.sheets.length === 0) {
+          p.notify('err', `No worksheets found in ${f.name}`);
+          return;
+        }
+        if (wb.sheets.length === 1) {
+          importTable(f.name, wb.sheets[0].name, wb.sheets[0].data, scenario.rows.length ? 'append' : 'replace');
+        } else {
+          setSheetPicker({ fileName: f.name, workbook: wb });
+        }
+      } catch (err) {
+        p.notify('err', `Could not read ${f.name} as Excel: ${String(err)}`);
+      }
+      return;
+    }
     importText(f.name, await f.text(), scenario.rows.length ? 'append' : 'replace');
   };
 
@@ -59,23 +91,48 @@ export function CargoStep(p: AppApi) {
         <div><p className="eyebrow">Step 01</p><h1 id="h-cargo">Cargo manifest</h1>
           <p className="sub">One row per kind of unit. Dimensions and weight are <b>per unit</b>. Anything you leave empty stays unknown — it is never guessed.</p></div>
         <div className="actions">
-          <button className="btn" disabled={disabled} onClick={() => fileRef.current?.click()}>Import CSV…</button>
-          <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,text/csv" hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
+          <button className="btn" disabled={disabled} onClick={() => fileRef.current?.click()}>Import CSV / Excel…</button>
+          <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
           <button className="btn" onClick={() => { const ok = download(`${scenario.name || 'cargo'}.csv`.replace(/\s+/g, '-'), cargoToCsv(scenario.rows), 'text/csv'); p.notify(ok ? 'ok' : 'err', ok ? 'Manifest CSV downloaded.' : 'Download failed in this browser.'); }}>Download CSV</button>
           <button className="btn" disabled={disabled} onClick={() => setScenario((s) => ({ ...s, rows: [...s.rows, blankRow()] }))}>+ Add row</button>
         </div>
       </div>
 
-      <div className={`drop${drag ? ' over' : ''}`} role="group" aria-label="CSV drop zone"
+      <div className={`drop${drag ? ' over' : ''}`} role="group" aria-label="CSV and Excel drop zone"
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); if (!disabled) onFile(e.dataTransfer.files?.[0]); }}>
-        <span>Drop a CSV here, or start from an example:</span>
+        <span>Drop a CSV or Excel (.xlsx) file here, or start from an example:</span>
         {SAMPLES.map((s) => (
           <button key={s.id} className="btn sm ghost" disabled={disabled} title={s.blurb}
             onClick={() => { const sc = sampleScenario(s.id); setScenario((cur) => ({ ...cur, name: sc.name, rows: sc.rows })); setImp(null); p.notify('ok', `Loaded “${s.title}”. Edit anything — it is plain data.`); }}>{s.title}</button>
         ))}
         <a className="linkbtn" href="#/app/cargo" onClick={(e) => { e.preventDefault(); const t = SAMPLES[0]; download(t.file, t.csv, 'text/csv'); }}>Download example CSV</a>
       </div>
+
+      {sheetPicker && (
+        <div className="panel sheet-picker-panel" role="dialog" aria-modal="true" aria-labelledby="h-sheet-picker">
+          <div className="panel-h">
+            <b id="h-sheet-picker">Select Worksheet — {sheetPicker.fileName}</b>
+            <button className="btn sm ghost" onClick={() => setSheetPicker(null)}>Cancel</button>
+          </div>
+          <p className="muted small">This workbook contains {sheetPicker.workbook.sheets.length} sheets. Choose which sheet to import into Cargo Fit:</p>
+          <div className="sheet-pills">
+            {sheetPicker.workbook.sheets.map((s, idx) => (
+              <button
+                key={idx}
+                className="arr-btn"
+                onClick={() => {
+                  importTable(sheetPicker.fileName, s.name, s.data, scenario.rows.length ? 'append' : 'replace');
+                  setSheetPicker(null);
+                }}
+              >
+                <span className="arr-title">📄 {s.name}</span>
+                <span className="arr-stat mono">{s.data.length} row(s) detected</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {imp && (
         <div className="panel" role="region" aria-label="Import review">
@@ -97,7 +154,7 @@ export function CargoStep(p: AppApi) {
           <table className="grid" aria-label="Cargo manifest">
             <thead><tr>
               <th>#</th><th>Identifier</th><th>Qty</th><th>Length</th><th>Width</th><th>Height</th><th>Unit</th>
-              <th>Weight each</th><th>Unit</th><th>Rotation</th><th>Stacking</th><th>Size in mm</th><th aria-label="Row actions" />
+              <th>Weight each</th><th>Unit</th><th>Rotation</th><th>Stacking</th><th>Stop</th><th>Size in mm</th><th aria-label="Row actions" />
             </tr></thead>
             <tbody>
               {scenario.rows.map((r, i) => {
@@ -116,6 +173,7 @@ export function CargoStep(p: AppApi) {
                     <td><select aria-label={`Row ${i + 1} rotation rule`} disabled={disabled} value={r.rotation} onChange={(e) => update(r.uid, { rotation: e.target.value as RotationRule })}>
                       <option value="fixed">Fixed (as entered)</option><option value="upright">Upright (turn flat only)</option><option value="any">Any orientation</option></select></td>
                     <td><select aria-label={`Row ${i + 1} stacking`} disabled={disabled} value={r.stackable ? 'yes' : 'no'} onChange={(e) => update(r.uid, { stackable: e.target.value === 'yes' })}><option value="yes">Stackable</option><option value="no">No-stack</option></select></td>
+                    <td><NumInput value={r.stop ?? null} label={`Row ${i + 1} delivery stop`} disabled={disabled} width={44} placeholder="—" onChange={(v) => update(r.uid, { stop: v })} /></td>
                     <td className="mono dim conv">{mm ? `${fmtNum(mm[0], 0)}×${fmtNum(mm[1], 0)}×${fmtNum(mm[2], 0)}` : '—'}{r.weight && r.weight > 0 ? ` · ${fmtNum(toKg(r.weight, r.weightUnit), 1)} kg` : ''}</td>
                     <td className="actions-cell">
                       <button className={`btn sm ${inspectUid === r.uid ? 'primary' : 'ghost'}`} title="Inspect 3D box and allowed orientations" onClick={() => { setInspectUid(inspectUid === r.uid ? null : r.uid); setOrientIdx(0); }}>3D</button>

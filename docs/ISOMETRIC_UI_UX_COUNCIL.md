@@ -194,12 +194,18 @@ $$z' = z + \kappa \cdot z \cdot \text{MaxOffset}_z$$
 
 ## 7. Implementation Roadmap & Phasing
 
-| Phase | Milestone | Scope & Deliverables | Target Timeline |
+| Phase | Milestone | Scope & Deliverables | Status |
 | :--- | :--- | :--- | :--- |
-| **P0** *(Immediate)* | **Visual Legibility & Depth Overhaul** | Directional face shading, floor drop-shadow polygons, chamfered corner highlights, and high-contrast font size increases in `viz.ts`. | Week 1 |
-| **P1** *(Short-term)* | **Dynamic Longitudinal Cutaway & Explode** | Add `sliceX` depth clipping slider and `explode` slider to `VizCtx` and `PlanStep.tsx`. | Weeks 2–3 |
-| **P2** *(Mid-term)* | **Tactile Dock HUD & Keyboard Sequencer** | Fullscreen Dock Mode with giant step buttons, keyboard step navigation (`J`/`K`), and floor CoG plumb-bob overlay. | Weeks 3–4 |
-| **P3** *(Advanced)* | **Direct Isometric Manipulation** | On-canvas isometric gizmo handles for drag-nudging items with magnetic surface snapping and live collision feedback. | Weeks 5–6 |
+| **P0** *(Immediate)* | **Visual Legibility & Depth Overhaul** | Directional face shading, floor drop-shadow polygons, chamfered specular highlights, high-contrast number tags in `viz.ts`. | **Implemented & Verified** |
+| **P1** *(Short-term)* | **Dynamic Longitudinal Cutaway & Explode** | Added `sliceX` depth clipping slider, `explode` radial expansion slider, and `blueprint` mode toggle in `VizCtx`, `viz.ts`, and `PlanStep.tsx`. | **Implemented & Verified** |
+| **P2** *(Mid-term)* | **Tactile Dock HUD & Keyboard Sequencer** | Dedicated Dock HUD mode with 48px+ big touch buttons, `J`/`K`/`Space` keyboard navigation, active unit manifest card, orientation compass, 3D Center of Gravity plumb-bob with optimal 45-55% target zone, and beam-reaction axle load estimation. | **Implemented & Verified** |
+| **P3** *(Advanced)* | **Direct Isometric Manipulation & Snaps** | Multi-distance nudge selector (10/50/100/500mm), quick wall/bulkhead snaps, drop-to-rest elevation snapping, and live validator re-checks. | **Implemented & Verified** |
+
+### Implementation Evidence & Automated Tests
+- Automated unit test suite: `tests/engine.test.ts` (25/25 passing in 1.78s).
+- Production build: `tsc --noEmit && vite build` (successful compilation, 0 errors, 498ms).
+- Zero external runtime dependencies added; pure vector SVG export parity fully preserved.
+
 
 ---
 

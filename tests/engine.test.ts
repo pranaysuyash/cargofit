@@ -5,7 +5,10 @@ import { analyzeScenario, DEFAULT_SETTINGS } from '../src/engine/scenario';
 import { validatePlacements } from '../src/engine/validator';
 import { expandUnits, normalizeEquipment, validateRows } from '../src/engine/normalize';
 import { toMm, toKg } from '../src/engine/units';
-import type { CargoRow, EquipmentProfile, Scenario } from '../src/engine/types';
+import { computeMetrics } from '../src/engine/analyze';
+import { recommendFleet } from '../src/engine/fleet';
+import { renderIso, rowColors } from '../src/engine/viz';
+import type { CargoRow, EquipmentProfile, Placement, Scenario, Unit } from '../src/engine/types';
 
 const fx = (n: string) => readFileSync(new URL(`../fixtures/${n}`, import.meta.url), 'utf8');
 const presets = JSON.parse(fx('equipment-presets.json')) as EquipmentProfile[];
@@ -201,5 +204,86 @@ describe('performance', () => {
     console.log(`540-unit solve: ${ms} ms, status ${a.results[0].status}, placed ${a.results[0].metrics.placedUnits}`);
     expect(ms).toBeLessThan(30000);
     expect(a.results[0].status).not.toBe('PROVEN_INFEASIBLE_UNDER_MODELED_CONSTRAINTS');
+  });
+
+  it('computes 3D CoG and beam-reaction axle load estimates accurately', () => {
+    const eqn = normalizeEquipment(eq('trailer53'))!;
+    const u1: Unit = { id: 'u1', rowUid: 'r1', label: 'Item 1', dims: [2000, 1000, 1000], weightKg: 5000, rotation: 'any', stackable: true };
+    const u2: Unit = { id: 'u2', rowUid: 'r2', label: 'Item 2', dims: [2000, 1000, 1000], weightKg: 5000, rotation: 'any', stackable: true };
+    const p1: Placement = { unitId: 'u1', rowUid: 'r1', label: 'Item 1', x: 2000, y: 0, z: 0, dx: 2000, dy: 1000, dz: 1000, order: 1 };
+    const p2: Placement = { unitId: 'u2', rowUid: 'r2', label: 'Item 2', x: 8000, y: 0, z: 0, dx: 2000, dy: 1000, dz: 1000, order: 2 };
+
+    const m = computeMetrics([u1, u2], eqn, [p1, p2]);
+    expect(m.loadedWeightKg).toBe(10000);
+    expect(m.cogX).toBeCloseTo(6000, 0);
+    expect(m.cogY).toBeCloseTo(500, 0);
+    expect(m.cogZ).toBeCloseTo(500, 0);
+    expect(m.cogXPct).toBeCloseTo((6000 / eqn.L) * 100, 1);
+    expect(m.axleEst).not.toBeNull();
+    expect(m.axleEst!.steerKg + m.axleEst!.driveKg + m.axleEst!.trailerKg).toBe(10000);
+  });
+
+  it('renders isometric SVG with explode, cutaway, blueprint, and CoG markers', () => {
+    const eqn = normalizeEquipment(eq('trailer53'))!;
+    const u1: Unit = { id: 'u1', rowUid: 'r1', label: 'Item 1', dims: [1200, 800, 1000], weightKg: 500, rotation: 'any', stackable: true };
+    const p1: Placement = { unitId: 'u1', rowUid: 'r1', label: 'Item 1', x: 1000, y: 500, z: 0, dx: 1200, dy: 800, dz: 1000, order: 1 };
+    const colors = rowColors([row({ label: 'Item 1', qty: 1 })]);
+
+    const svgNorm = renderIso({
+      eq: eqn,
+      placements: [p1],
+      colors,
+      explode: 0.25,
+      sliceX: 0.5,
+      blueprint: false,
+      showCoG: true,
+      units: [u1],
+    });
+    expect(svgNorm).toContain('DOOR ENTRY');
+    expect(svgNorm).toContain('OPTIMAL CoG TARGET');
+    expect(svgNorm).toContain('CoG:');
+
+    const svgBp = renderIso({
+      eq: eqn,
+      placements: [p1],
+      colors,
+      blueprint: true,
+      showCoG: true,
+      units: [u1],
+    });
+    expect(svgBp).toContain('#08101e');
+    expect(svgBp).toContain('#38bdf8');
+  });
+
+  it('detects multi-stop LIFO entrapment when earlier drop is blocked by later drop', () => {
+    const eqn = normalizeEquipment(eq('trailer53'))!;
+    const uStop1: Unit = { id: 'uStop1', rowUid: 'r1', label: 'Drop 1 Item', dims: [1200, 1000, 1000], weightKg: 500, rotation: 'any', stackable: true, stop: 1 };
+    const uStop2: Unit = { id: 'uStop2', rowUid: 'r2', label: 'Drop 2 Item', dims: [1200, 1000, 1000], weightKg: 500, rotation: 'any', stackable: true, stop: 2 };
+    // Stop 1 placed at x=1000, but Stop 2 placed at x=3000 (closer to the rear door along the same lateral corridor)
+    const p1: Placement = { unitId: 'uStop1', rowUid: 'r1', label: 'Drop 1 Item', x: 1000, y: 500, z: 0, dx: 1200, dy: 1000, dz: 1000, order: 1, stop: 1 };
+    const p2: Placement = { unitId: 'uStop2', rowUid: 'r2', label: 'Drop 2 Item', x: 3000, y: 500, z: 0, dx: 1200, dy: 1000, dz: 1000, order: 2, stop: 2 };
+
+    const violations = validatePlacements([uStop1, uStop2], eqn, [p1, p2], DEFAULT_SETTINGS);
+    const entrapment = violations.find((v) => v.code === 'STOP_ACCESS_BLOCKED');
+    expect(entrapment).toBeDefined();
+    expect(entrapment?.message).toContain('is blocked from rear door egress');
+  });
+
+  it('calculates multi-vehicle fleet split recommendations for oversized cargo', () => {
+    const pallets: Unit[] = Array.from({ length: 60 }, (_, i) => ({
+      id: `p${i + 1}`,
+      rowUid: 'r1',
+      label: 'Pallet',
+      dims: [1200, 1000, 1600],
+      weightKg: 800,
+      rotation: 'upright',
+      stackable: true,
+    }));
+
+    const fleet = recommendFleet(pallets, [eq('trailer53'), eq('box7t'), eq('van')]);
+    expect(fleet.totalVehicles).toBeGreaterThan(1);
+    expect(fleet.allocations.length).toBeGreaterThan(0);
+    expect(fleet.totalUnits).toBe(60);
+    expect(fleet.summary).toContain('Recommended Fleet:');
   });
 });

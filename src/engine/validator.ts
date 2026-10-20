@@ -87,5 +87,31 @@ export function validatePlacements(
       out.push({ code: 'PAYLOAD_EXCEEDED', unitIds: [], message: `Known loaded weight ${w.toFixed(1)} kg exceeds declared payload ${eq.payloadKg.toFixed(1)} kg.` });
     }
   }
+
+  // Multi-stop LIFO entrapment: earlier drop must not be blocked from rear door egress by later drop
+  for (let i = 0; i < ps.length; i++) {
+    const a = ps[i];
+    const uA = byId.get(a.unitId);
+    if (!uA || uA.stop === null || uA.stop === undefined) continue;
+    for (let j = 0; j < ps.length; j++) {
+      if (i === j) continue;
+      const b = ps[j];
+      const uB = byId.get(b.unitId);
+      if (!uB || uB.stop === null || uB.stop === undefined) continue;
+      if (uA.stop < uB.stop && b.x >= a.x + a.dx - EPS) {
+        const overlapY = Math.min(a.y + a.dy, b.y + b.dy) - Math.max(a.y, b.y);
+        const overlapZ = Math.min(a.z + a.dz, b.z + b.dz) - Math.max(a.z, b.z);
+        if (overlapY > EPS && overlapZ > EPS) {
+          out.push({
+            code: 'STOP_ACCESS_BLOCKED',
+            unitIds: [a.unitId, b.unitId],
+            message: `${a.unitId} (Stop ${uA.stop}) is blocked from rear door egress by ${b.unitId} (Stop ${uB.stop}) placed behind it.`,
+          });
+          break;
+        }
+      }
+    }
+  }
+
   return out;
 }

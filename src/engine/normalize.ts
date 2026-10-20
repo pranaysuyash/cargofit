@@ -79,6 +79,7 @@ export function expandUnits(rows: CargoRow[]): Unit[] {
         id: r.qty === 1 ? r.label.trim() : `${r.label.trim()}#${i}`,
         rowUid: r.uid, label: r.label.trim(), dims, weightKg: w,
         rotation: r.rotation, stackable: r.stackable,
+        stop: r.stop ?? null,
       });
       if (out.length > MAX_UNITS) return out;
     }

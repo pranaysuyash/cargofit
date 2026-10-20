@@ -270,3 +270,97 @@ input.cur { width: 58px; min-width: 0; text-transform: uppercase; }
 .snap-actions { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); }
 .btn-group-sm { display: flex; flex-wrap: wrap; gap: 4px; }
 
+/* ---------- Tactical Dock HUD & Spatial Controls ---------- */
+.tool-slider { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); background: white; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); }
+.tool-slider input[type=range] { width: 70px; height: 16px; margin: 0; }
+
+.dock-active { background: oklch(0.55 0.22 45) !important; color: white !important; font-weight: 700; }
+
+.dock-hud-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 1fr);
+  gap: 16px;
+  padding: 14px 18px;
+  background: color-mix(in oklch, var(--panel) 30%, white);
+  border-bottom: 2px solid var(--accent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.dock-hud-main { display: flex; flex-direction: column; gap: 12px; }
+.dock-hud-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dock-btn { min-height: 48px; padding: 10px 20px; font-size: 14px; font-weight: 700; border-radius: 8px; letter-spacing: 0.02em; }
+.dock-hud-step-badge { display: flex; flex-direction: column; justify-content: center; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; min-width: 160px; text-align: center; }
+.dock-step-lbl { font: 700 10px var(--font); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.dock-step-val { font-size: 15px; color: var(--accent-ink); }
+
+.dock-active-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dock-card-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dock-card-id { font-weight: 700; color: var(--accent-ink); font-size: 14px; }
+.dock-card-lbl { font-weight: 600; color: var(--ink); font-size: 13.5px; }
+.dock-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px 14px; font-size: 12px; }
+.dock-card-grid span { color: var(--muted); }
+.dock-card-grid b { font-family: var(--mono); color: var(--ink); }
+
+.dock-hud-side { display: flex; flex-direction: column; gap: 12px; justify-content: space-between; }
+.dock-compass {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: 700 10.5px var(--font);
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+.compass-mid { display: flex; align-items: center; gap: 14px; }
+.compass-dot { font-size: 14px; color: var(--accent); }
+.compass-t, .compass-b { font-size: 10px; }
+
+.dock-axle-summary {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dock-axle-title { font: 700 11px var(--font); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.axle-meter { display: flex; flex-direction: column; gap: 2px; }
+.axle-row { display: flex; justify-content: space-between; font-size: 11.5px; }
+.axle-row span { color: var(--ink-2); }
+.meter-bar { height: 6px; background: var(--line-2); border-radius: 3px; overflow: hidden; width: 100%; }
+.meter-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+.disclaimer-tiny { font-size: 9.5px; color: var(--muted); font-style: italic; margin-top: 2px; }
+
+.nudge-step-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.sheet-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.sheet-picker-panel { border-color: var(--accent); background: color-mix(in oklch, var(--panel) 40%, white); }
+.multi-stop-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+
+
+
+/* ---------- Fleet Splitter & Multi-Vehicle Allocation ---------- */
+.fleet-panel { background: color-mix(in oklch, var(--panel) 75%, white); border-color: color-mix(in oklch, var(--accent) 30%, var(--line)); }
+.fleet-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 6px; }
+.fleet-alloc-card { background: white; border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.fleet-alloc-h { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.fleet-badge { background: var(--ink); color: white; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+.fleet-alloc-stats { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.fleet-alloc-stats span { color: var(--muted); }
+.fleet-alloc-stats b { color: var(--ink); }
+.fleet-summary-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 12.5px; color: var(--ink-2); }
+
+

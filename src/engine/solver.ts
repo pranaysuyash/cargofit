@@ -56,6 +56,7 @@ const ORDERS: OrderDef[] = [
   { name: 'Heavy first', key: (u) => [-(u.weightKg ?? 0), -vol(u)] },
   { name: 'Tallest first', key: (u) => [-u.dims[2], -vol(u)] },
   { name: 'No-stack first', key: (u) => [u.stackable ? 1 : 0, -vol(u)] },
+  { name: 'Reverse drop (LIFO)', key: (u) => [-(u.stop ?? 0), -vol(u)] },
   { name: 'Input order', key: (_u, i) => [i] },
 ];
 
@@ -166,7 +167,7 @@ function runOnce(
     const [dx, dy, dz] = best.d;
     boxes.push({ x: best.x, y: best.y, z: best.z, dx, dy, dz, top: best.z + dz, stackable: u.stackable });
     registerBox(boxes.length - 1);
-    placements.push({ unitId: u.id, rowUid: u.rowUid, label: u.label, x: best.x, y: best.y, z: best.z, dx, dy, dz, order: placements.length + 1 });
+    placements.push({ unitId: u.id, rowUid: u.rowUid, label: u.label, x: best.x, y: best.y, z: best.z, dx, dy, dz, order: placements.length + 1, stop: u.stop ?? null });
     if (u.weightKg !== null) weight += u.weightKg;
     addPoint(best.x + dx, best.y);
     addPoint(best.x, best.y + dy);

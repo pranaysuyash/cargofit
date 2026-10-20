@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { buildHtmlReport, buildPlanFile, LIMITATIONS, placementsCsv } from '../engine/report';
+import { buildHtmlReport, buildInteractiveHtmlReport, buildPlanFile, LIMITATIONS, placementsCsv } from '../engine/report';
 import { cargoToCsv } from '../engine/csv';
 import { diffRows, diffResults, summarize } from '../engine/scenario';
 import { deleteScenario, loadAll } from '../engine/storage';
@@ -24,7 +24,7 @@ export function VersionsStep(p: AppApi) {
     const placements = (key && p.edits[key]) || result.arrangements[arrIdx].placements;
     return buildPlanFile({ scenario, result, placements, arrangementName: result.arrangements[arrIdx].name, edited, inputHash: p.hash });
   };
-  const exportAs = (kind: 'json' | 'csv' | 'html' | 'open') => {
+  const exportAs = (kind: 'json' | 'csv' | 'html' | 'open' | 'interactive') => {
     if (!ready) { p.notify('warn', 'Plans are stale or still computing. Wait until “Plans up to date”, then export.'); return; }
     const plan = makePlan();
     if (!plan) { p.notify('err', 'No computed plan to export.'); return; }
@@ -33,6 +33,7 @@ export function VersionsStep(p: AppApi) {
     if (kind === 'json') ok = download(`${base}.plan.json`, JSON.stringify(plan, null, 2), 'application/json');
     if (kind === 'csv') ok = download(`${base}.placements.csv`, placementsCsv(plan), 'text/csv');
     if (kind === 'html') ok = download(`${base}.report.html`, buildHtmlReport(plan), 'text/html');
+    if (kind === 'interactive') ok = download(`${base}.interactive-3d.html`, buildInteractiveHtmlReport(plan), 'text/html');
     if (kind === 'open') {
       const w = window.open('', '_blank');
       if (w) { w.document.write(buildHtmlReport(plan)); w.document.close(); ok = true; }
@@ -73,7 +74,8 @@ export function VersionsStep(p: AppApi) {
           {!result ? <p className="muted">No computed plan to export yet.</p> : (
             <>
               <div className="exports">
-                <button className="btn primary" disabled={!ready} onClick={() => exportAs('html')}>Report (HTML, printable)</button>
+                <button className="btn primary" disabled={!ready} onClick={() => exportAs('interactive')} title="Single-file offline HTML with embedded 3D viewer, rotation, and loading player">★ Interactive 3D (.html)</button>
+                <button className="btn" disabled={!ready} onClick={() => exportAs('html')}>Report (HTML, printable)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('open')}>Open report to print/PDF</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('json')}>Plan file (JSON)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('csv')}>Placements (CSV)</button>

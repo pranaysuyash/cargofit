@@ -10,7 +10,6 @@ import type { AppApi } from './App';
 import { NumInput, StatusBadge } from './common';
 
 type View = 'iso' | 'top' | 'side';
-const STEP = 50;
 
 export function PlanStep(p: AppApi) {
   const { scenario, results, readOnly } = p;
@@ -26,6 +25,13 @@ export function PlanStep(p: AppApi) {
   const [showGrid, setShowGrid] = useState(true);
   const [filterRowUid, setFilterRowUid] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [explode, setExplode] = useState(0);
+  const [sliceX, setSliceX] = useState<number | null>(null);
+  const [blueprint, setBlueprint] = useState(false);
+  const [showCoG, setShowCoG] = useState(true);
+  const [dockMode, setDockMode] = useState(false);
+  const [nudgeStep, setNudgeStep] = useState(100);
+  const [activeStageIdx, setActiveStageIdx] = useState(0);
   const vref = useRef<HTMLDivElement>(null);
   const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -104,17 +110,80 @@ export function PlanStep(p: AppApi) {
   };
 
   const onKey = (e: React.KeyboardEvent) => {
-    if (!selP) return;
     const k = e.key;
-    const m: Record<string, [number, number, number]> = { ArrowLeft: [-STEP, 0, 0], ArrowRight: [STEP, 0, 0], ArrowUp: [0, -STEP, 0], ArrowDown: [0, STEP, 0], PageUp: [0, 0, STEP], PageDown: [0, 0, -STEP] };
+    if (k === 'j' || k === 'J') {
+      e.preventDefault();
+      const cur = upTo ?? working.length;
+      const prev = Math.max(1, cur - 1);
+      setUpTo(prev);
+      const targetUnit = working.find((w) => w.order === prev);
+      if (targetUnit) setSel(targetUnit.unitId);
+      return;
+    }
+    if (k === 'k' || k === 'K') {
+      e.preventDefault();
+      const cur = upTo ?? working.length;
+      const next = Math.min(working.length, cur + 1);
+      setUpTo(next >= working.length ? null : next);
+      const targetUnit = working.find((w) => w.order === next);
+      if (targetUnit) setSel(targetUnit.unitId);
+      return;
+    }
+    if (k === ' ') {
+      e.preventDefault();
+      if (playing) setPlaying(false);
+      else {
+        if ((upTo ?? working.length) >= working.length) setUpTo(0);
+        setPlaying(true);
+      }
+      return;
+    }
+    if (k === 'b' || k === 'B') {
+      e.preventDefault();
+      setBlueprint((b) => !b);
+      return;
+    }
+    if (k === 'd' || k === 'D') {
+      e.preventDefault();
+      setDockMode((m) => !m);
+      return;
+    }
+
+    if (!selP) return;
+    const m: Record<string, [number, number, number]> = {
+      ArrowLeft: [-nudgeStep, 0, 0],
+      ArrowRight: [nudgeStep, 0, 0],
+      ArrowUp: [0, -nudgeStep, 0],
+      ArrowDown: [0, nudgeStep, 0],
+      PageUp: [0, 0, nudgeStep],
+      PageDown: [0, 0, -nudgeStep],
+    };
     if (m[k]) { e.preventDefault(); move(...m[k]); }
     else if (k === 'r' || k === 'R') { e.preventDefault(); rotate(); }
     else if (k === 'Escape') setSel(null);
   };
 
+  const activeStage = result?.multiStopStages && result.multiStopStages[activeStageIdx] ? result.multiStopStages[activeStageIdx] : null;
+  const stagePlacements = useMemo(() => {
+    if (!activeStage || activeStage.stage === 0) return working;
+    return working.filter((w) => {
+      const u = unitMap.get(w.unitId);
+      const st = u?.stop ?? w.stop ?? null;
+      return st === null || st > activeStage.stop;
+    });
+  }, [activeStage, working, unitMap]);
+
+  const currentStepNum = upTo ?? working.length;
+  const activeStepUnit = useMemo(() => {
+    if (selP) return selP;
+    const targetOrder = upTo ?? working.length;
+    return working.find((w) => w.order === targetOrder) ?? working[0] ?? null;
+  }, [selP, upTo, working]);
+  const activeStepUnitInfo = activeStepUnit ? unitMap.get(activeStepUnit.unitId) : undefined;
+
   const ctx = {
     eq,
-    placements: working,
+    placements: activeStage && activeStage.stage > 0 ? stagePlacements : working,
     colors,
     selectedId: sel,
     badIds: bad,
@@ -123,6 +192,11 @@ export function PlanStep(p: AppApi) {
     xray,
     showGrid,
     filterRowUid,
+    explode,
+    sliceX,
+    blueprint,
+    showCoG,
+    units,
   };
   const svg = view === 'iso' ? renderIso(ctx) : view === 'top' ? renderTop(ctx) : renderSide(ctx);
   const onPick = (e: React.MouseEvent) => {
@@ -187,16 +261,150 @@ export function PlanStep(p: AppApi) {
         </div>
       )}
 
+      {/* Multi-Stop Delivery Simulation (LIFO Sequence) */}
+      {result.multiStopStages && result.multiStopStages.length > 1 && (
+        <div className="arr-gallery multi-stop-strip" role="region" aria-label="Multi-Stop delivery simulation">
+          <div className="multi-stop-head">
+            <span className="arr-lbl">Multi-Stop Delivery Route (LIFO Unload Order):</span>
+            <span className="muted small">Simulate partial unload state and axle load balance after each drop</span>
+          </div>
+          <div className="arr-pills">
+            {result.multiStopStages.map((stg, i) => {
+              const isCur = i === activeStageIdx;
+              return (
+                <button
+                  key={i}
+                  className={`arr-btn ${isCur ? 'active' : ''}`}
+                  onClick={() => setActiveStageIdx(i)}
+                >
+                  <span className="arr-title">
+                    {i === 0 ? '🏁 Origin Departure (Full)' : `🛑 Post-Stop ${stg.stop} Drop`}
+                  </span>
+                  <span className="arr-stat mono">
+                    {stg.remainingUnits} units · {fmtKgDual(stg.remainingWeightKg)}
+                    {stg.warning && <b className="warn-t"> (⚠ Axle Alert)</b>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {activeStage?.warning && (
+            <div className="banner warn" style={{ marginTop: 4 }}>
+              <span>⚠ <b>Progressive Axle Risk:</b> {activeStage.warning}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="metrics">
-        <div><span>Placed</span><b className="mono">{working.length}/{units.length}</b></div>
+        <div><span>Placed</span><b className="mono">{activeStage && activeStage.stage > 0 ? activeStage.remainingUnits : working.length}/{units.length}</b></div>
         <div><span>Occupied volume*</span><b className="mono">{fmtNum(metrics.occupiedVolumePct)}%</b></div>
-        <div><span>Known weight</span><b className="mono">{fmtKgDual(metrics.loadedWeightKg)}</b>{metrics.unknownWeightUnits > 0 && <em>+{metrics.unknownWeightUnits} unknown</em>}</div>
-        <div><span>Payload left</span><b className="mono">{metrics.payloadRemainingKg === null ? 'not declared' : fmtKgDual(metrics.payloadRemainingKg)}</b></div>
+        <div><span>Known weight</span><b className="mono">{fmtKgDual(activeStage && activeStage.stage > 0 ? activeStage.remainingWeightKg : metrics.loadedWeightKg)}</b>{metrics.unknownWeightUnits > 0 && <em>+{metrics.unknownWeightUnits} unknown</em>}</div>
+        <div><span>Payload left</span><b className="mono">{metrics.payloadRemainingKg === null ? 'not declared' : fmtKgDual(eq.payloadKg === null ? 0 : eq.payloadKg - (activeStage && activeStage.stage > 0 ? activeStage.remainingWeightKg : metrics.loadedWeightKg))}</b></div>
         <div><span>Length used</span><b className="mono">{fmtMmDual(metrics.usedLengthMm)}</b></div>
-        <div><span>Centroid (info)</span><b className="mono">{metrics.cogXPct === null ? 'n/a' : `${fmtNum(metrics.cogXPct, 0)}% of length`}</b></div>
+        <div><span>Centroid (info)</span><b className="mono">{(activeStage && activeStage.stage > 0 ? activeStage.cogXPct : metrics.cogXPct) === null ? 'n/a' : `${fmtNum((activeStage && activeStage.stage > 0 ? activeStage.cogXPct! : metrics.cogXPct!), 0)}% of length`}</b></div>
       </div>
 
       <div className="viewer">
+        {dockMode && (
+          <div className="dock-hud-banner" role="region" aria-label="Tactile Dock Execution Console">
+            <div className="dock-hud-main">
+              <div className="dock-hud-controls">
+                <button
+                  className="btn lg dock-btn"
+                  disabled={currentStepNum <= 1}
+                  onClick={() => {
+                    const target = Math.max(1, currentStepNum - 1);
+                    setUpTo(target);
+                    const u = working.find((w) => w.order === target);
+                    if (u) setSel(u.unitId);
+                  }}
+                  title="Previous step (J)"
+                >
+                  ◀ PREV (J)
+                </button>
+                <div className="dock-hud-step-badge">
+                  <span className="dock-step-lbl">CURRENT DOCK TASK</span>
+                  <b className="dock-step-val mono">STEP #{currentStepNum} of {working.length}</b>
+                </div>
+                <button
+                  className="btn lg dock-btn primary"
+                  disabled={currentStepNum >= working.length}
+                  onClick={() => {
+                    const target = currentStepNum + 1;
+                    setUpTo(target >= working.length ? null : target);
+                    const u = working.find((w) => w.order === target);
+                    if (u) setSel(u.unitId);
+                  }}
+                  title="Next step (K)"
+                >
+                  NEXT STEP (K) ▶
+                </button>
+              </div>
+
+              {activeStepUnit && (
+                <div className="dock-active-card">
+                  <div className="dock-card-h">
+                    <span className="dock-card-id mono">{activeStepUnit.unitId}</span>
+                    <span className="dock-card-lbl">{activeStepUnit.label}</span>
+                    {activeStepUnitInfo && (
+                      <span className={`chip ${activeStepUnitInfo.stackable ? 'ok' : 'warn'}`}>
+                        {activeStepUnitInfo.stackable ? 'Stackable' : 'NO-STACK / TOP ONLY'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="dock-card-grid">
+                    <div><span>Dimensions:</span> <b>{fmtMmDual(activeStepUnit.dx)} × {fmtMmDual(activeStepUnit.dy)} × {fmtMmDual(activeStepUnit.dz)}</b></div>
+                    <div><span>Weight:</span> <b>{activeStepUnitInfo?.weightKg ? fmtKgDual(activeStepUnitInfo.weightKg) : 'Unknown weight'}</b></div>
+                    <div><span>Target Bay Position:</span> <b>X: {fmtMmDual(activeStepUnit.x)} · Y: {fmtMmDual(activeStepUnit.y)} · Z: {fmtMmDual(activeStepUnit.z)}</b></div>
+                    <div><span>Orientation:</span> <b>{activeStepUnit.dx >= activeStepUnit.dy ? 'Lengthwise (along trailer)' : 'Crosswise (across width)'}</b></div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="dock-hud-side">
+              <div className="dock-compass">
+                <span className="compass-t">FRONT (NOSE) ⬆</span>
+                <div className="compass-mid">
+                  <span>⬅ DRIVER</span>
+                  <span className="compass-dot">⌖</span>
+                  <span>CURB ➡</span>
+                </div>
+                <span className="compass-b">REAR DOOR ⬇</span>
+              </div>
+
+              {metrics.axleEst && (
+                <div className="dock-axle-summary">
+                  <span className="dock-axle-title">Axle Weight Distribution (Est.)</span>
+                  <div className="axle-meter">
+                    <div className="axle-row">
+                      <span>Steer: {fmtKgDual(metrics.axleEst.steerKg)}</span>
+                      <b className="mono">{metrics.axleEst.steerPct}%</b>
+                    </div>
+                    <div className="meter-bar"><div className="meter-fill" style={{ width: `${Math.min(100, metrics.axleEst.steerPct)}%` }} /></div>
+                  </div>
+                  <div className="axle-meter">
+                    <div className="axle-row">
+                      <span>Drive Tandem: {fmtKgDual(metrics.axleEst.driveKg)}</span>
+                      <b className="mono">{metrics.axleEst.drivePct}%</b>
+                    </div>
+                    <div className="meter-bar"><div className="meter-fill" style={{ width: `${Math.min(100, metrics.axleEst.drivePct)}%` }} /></div>
+                  </div>
+                  <div className="axle-meter">
+                    <div className="axle-row">
+                      <span>Trailer Tandem: {fmtKgDual(metrics.axleEst.trailerKg)}</span>
+                      <b className="mono">{metrics.axleEst.trailerPct}%</b>
+                    </div>
+                    <div className="meter-bar"><div className="meter-fill" style={{ width: `${Math.min(100, metrics.axleEst.trailerPct)}%` }} /></div>
+                  </div>
+                  <span className="disclaimer-tiny">Engineering estimate. Check on certified scale.</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="vbar" role="toolbar" aria-label="Plan view controls">
           <div className="seg" role="tablist" aria-label="View">
             {([['iso', 'Isometric 3D'], ['top', 'Top (Plan)'], ['side', 'Side Elevation']] as [View, string][]).map(([v, l]) => (
@@ -211,10 +419,29 @@ export function PlanStep(p: AppApi) {
             <button className={`btn sm ${showGrid ? 'accent-active' : ''}`} onClick={() => setShowGrid(!showGrid)} title="Toggle floor grid lines">
               {showGrid ? '⊞ Grid ON' : '⊞ Grid'}
             </button>
+            <label className="inl tool-slider" title="Volumetric exploded view">
+              💥 Explode
+              <input type="range" min="0" max="1" step="0.05" value={explode} onChange={(e) => setExplode(Number(e.target.value))} />
+              <span className="mono">{Math.round(explode * 100)}%</span>
+            </label>
+            <label className="inl tool-slider" title="Longitudinal cutaway plane (peel from door to nose)">
+              ✂ Cutaway
+              <input type="range" min="0.1" max="1" step="0.05" value={sliceX ?? 1} onChange={(e) => { const v = Number(e.target.value); setSliceX(v >= 0.99 ? null : v); }} />
+              <span className="mono">{sliceX !== null ? `${Math.round(sliceX * 100)}%` : 'Full'}</span>
+            </label>
+            <button className={`btn sm ${blueprint ? 'accent-active' : ''}`} onClick={() => setBlueprint(!blueprint)} title="Toggle technical Prussian blueprint mode (B)">
+              📐 Blueprint
+            </button>
+            <button className={`btn sm ${showCoG ? 'accent-active' : ''}`} onClick={() => setShowCoG(!showCoG)} title="Toggle 3D Center of Gravity plumb-bob and target reticle">
+              ⚲ CoG
+            </button>
           </>}
+          <button className={`btn sm ${dockMode ? 'accent-active dock-active' : ''}`} onClick={() => setDockMode(!dockMode)} title="Toggle full-screen Tactile Dock HUD (D)">
+            ⛶ Dock HUD
+          </button>
           <button className="btn sm" onClick={() => setZoom((z) => Math.min(2.5, z * 1.2))} aria-label="Zoom in">＋</button>
           <button className="btn sm" onClick={() => setZoom((z) => Math.max(0.5, z / 1.2))} aria-label="Zoom out">－</button>
-          <button className="btn sm ghost" onClick={() => { setZoom(1); setRot(0); setXray(false); setShowGrid(true); setFilterRowUid(null); }}>Reset</button>
+          <button className="btn sm ghost" onClick={() => { setZoom(1); setRot(0); setXray(false); setShowGrid(true); setFilterRowUid(null); setExplode(0); setSliceX(null); setBlueprint(false); }}>Reset</button>
 
           <div className="cargo-filter">
             <label className="inl">
@@ -229,7 +456,7 @@ export function PlanStep(p: AppApi) {
           </div>
 
           <div className="seq">
-            <button className="btn sm" disabled={reduced || working.length < 2} title={reduced ? 'Reduced motion is on — use the slider' : 'Play loading sequence'}
+            <button className="btn sm" disabled={reduced || working.length < 2} title={reduced ? 'Reduced motion is on — use the slider' : 'Play loading sequence (Space)'}
               onClick={() => { if (playing) setPlaying(false); else { setUpTo(0); setPlaying(true); } }}>{playing ? '❚❚ Pause' : '▶ Load sequence'}</button>
             <input type="range" min={0} max={working.length} value={upTo ?? working.length} aria-label="Loading step"
               onChange={(e) => { setPlaying(false); const v = Number(e.target.value); setUpTo(v >= working.length ? null : v); }} />
@@ -317,14 +544,29 @@ export function PlanStep(p: AppApi) {
                 </div>
               </div>
 
+              <div className="nudge-step-bar">
+                <span className="muted small">Nudge distance:</span>
+                <div className="btn-group-sm">
+                  {([10, 50, 100, 500] as const).map((s) => (
+                    <button
+                      key={s}
+                      className={`btn sm ${nudgeStep === s ? 'primary' : 'ghost'}`}
+                      onClick={() => setNudgeStep(s)}
+                    >
+                      {s} mm
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="nudge">
-                <button className="btn sm" disabled={!!readOnly} onClick={() => move(-STEP, 0, 0)}>← x</button><button className="btn sm" disabled={!!readOnly} onClick={() => move(STEP, 0, 0)}>x →</button>
-                <button className="btn sm" disabled={!!readOnly} onClick={() => move(0, -STEP, 0)}>↑ y</button><button className="btn sm" disabled={!!readOnly} onClick={() => move(0, STEP, 0)}>y ↓</button>
-                <button className="btn sm" disabled={!!readOnly} onClick={() => move(0, 0, STEP)}>z ↑</button><button className="btn sm" disabled={!!readOnly} onClick={() => move(0, 0, -STEP)}>z ↓</button>
+                <button className="btn sm" disabled={!!readOnly} onClick={() => move(-nudgeStep, 0, 0)}>← x</button><button className="btn sm" disabled={!!readOnly} onClick={() => move(nudgeStep, 0, 0)}>x →</button>
+                <button className="btn sm" disabled={!!readOnly} onClick={() => move(0, -nudgeStep, 0)}>↑ y</button><button className="btn sm" disabled={!!readOnly} onClick={() => move(0, nudgeStep, 0)}>y ↓</button>
+                <button className="btn sm" disabled={!!readOnly} onClick={() => move(0, 0, nudgeStep)}>z ↑</button><button className="btn sm" disabled={!!readOnly} onClick={() => move(0, 0, -nudgeStep)}>z ↓</button>
                 <button className="btn sm" disabled={!!readOnly} onClick={rotate}>Rotate (R)</button>
                 <button className="btn sm danger" disabled={!!readOnly} onClick={removeFromPlan}>Remove from plan</button>
               </div>
-              <p className="muted small">Step {STEP} mm. x runs from front wall to door; y across width; z up.</p>
+              <p className="muted small">Step {nudgeStep} mm. x runs from front wall to door; y across width; z up. (Arrow keys & PageUp/Down)</p>
             </div>
           ) : <p className="muted">Select an item in the drawing or table to see its size, source row and to move or rotate it. Every change is re-validated immediately.</p>}
 

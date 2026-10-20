@@ -2,7 +2,7 @@ import { solve, orientationsFor, usableOrientations } from './solver';
 import { EPS, validatePlacements } from './validator';
 import {
   SOLVER_VERSION,
-  type Arrangement, type EquipmentResult, type Metrics, type ModeledCheck, type NormalizedEquipment,
+  type Arrangement, type EquipmentResult, type Metrics, type ModeledCheck, type MultiStopStage, type NormalizedEquipment,
   type Placement, type Reason, type Settings, type Unit,
 } from './types';
 
@@ -10,18 +10,51 @@ export function computeMetrics(units: Unit[], eq: NormalizedEquipment, placement
   const byId = new Map(units.map((u) => [u.id, u]));
   let vol = 0;
   let weight = 0;
-  let moment = 0;
+  let momentX = 0;
+  let momentY = 0;
+  let momentZ = 0;
   let extent = 0;
   for (const p of placements) {
     vol += p.dx * p.dy * p.dz;
     const w = byId.get(p.unitId)?.weightKg ?? 0;
     weight += w;
-    moment += w * (p.x + p.dx / 2);
+    momentX += w * (p.x + p.dx / 2);
+    momentY += w * (p.y + p.dy / 2);
+    momentZ += w * (p.z + p.dz / 2);
     extent = Math.max(extent, p.x + p.dx);
   }
   const placedIds = new Set(placements.map((p) => p.unitId));
   const unknown = units.filter((u) => u.weightKg === null).length;
   const unknownPlaced = units.filter((u) => u.weightKg === null && placedIds.has(u.id)).length;
+  const hasValidCoG = weight > 0 && unknownPlaced === 0;
+  const cogX = hasValidCoG ? momentX / weight : null;
+  const cogY = hasValidCoG ? momentY / weight : null;
+  const cogZ = hasValidCoG ? momentZ / weight : null;
+  const cogXPct = hasValidCoG && eq.L > 0 ? (100 * momentX) / weight / eq.L : null;
+
+  let axleEst = null;
+  if (hasValidCoG && cogX !== null && eq.L > 3000) {
+    const xKp = 0.08 * eq.L;
+    const xTb = 0.80 * eq.L;
+    const span = Math.max(1, xTb - xKp);
+    const fTandem = Math.max(0, Math.min(1, (cogX - xKp) / span));
+    const fKp = 1 - fTandem;
+    const trailerKg = Math.round(weight * fTandem);
+    const steerKg = Math.round(weight * fKp * 0.20);
+    const driveKg = Math.round(weight * fKp * 0.80);
+    const steerLimit = 5443;
+    const driveLimit = 15422;
+    const tandemLimit = 15422;
+    axleEst = {
+      steerKg,
+      driveKg,
+      trailerKg,
+      steerPct: Math.round((steerKg / steerLimit) * 100),
+      drivePct: Math.round((driveKg / driveLimit) * 100),
+      trailerPct: Math.round((trailerKg / tandemLimit) * 100),
+    };
+  }
+
   return {
     totalUnits: units.length,
     placedUnits: placements.length,
@@ -31,8 +64,72 @@ export function computeMetrics(units: Unit[], eq: NormalizedEquipment, placement
     payloadKg: eq.payloadKg,
     payloadRemainingKg: eq.payloadKg === null ? null : eq.payloadKg - weight,
     usedLengthMm: extent,
-    cogXPct: weight > 0 && unknownPlaced === 0 ? (100 * moment) / weight / eq.L : null,
+    cogXPct,
+    cogX,
+    cogY,
+    cogZ,
+    axleEst,
   };
+}
+
+export function computeMultiStopStages(
+  units: Unit[],
+  eq: NormalizedEquipment,
+  placements: Placement[],
+): MultiStopStage[] {
+  const stops = Array.from(new Set(units.map((u) => u.stop).filter((s): s is number => typeof s === 'number' && s > 0))).sort((a, b) => a - b);
+  if (stops.length < 2) return [];
+
+  const stages: MultiStopStage[] = [];
+  const byId = new Map(units.map((u) => [u.id, u]));
+
+  const fullMetrics = computeMetrics(units, eq, placements);
+  stages.push({
+    stage: 0,
+    stop: 0,
+    label: 'Depart Origin (Full Load)',
+    remainingUnits: placements.length,
+    remainingWeightKg: fullMetrics.loadedWeightKg,
+    cogX: fullMetrics.cogX ?? null,
+    cogXPct: fullMetrics.cogXPct ?? null,
+    axleEst: fullMetrics.axleEst ?? null,
+    warning: null,
+  });
+
+  for (let sIdx = 0; sIdx < stops.length; sIdx++) {
+    const currentStop = stops[sIdx];
+    const remainingPlacements = placements.filter((p) => {
+      const u = byId.get(p.unitId);
+      const st = u?.stop ?? p.stop ?? null;
+      return st === null || st > currentStop;
+    });
+
+    const remMetrics = computeMetrics(units, eq, remainingPlacements);
+    let warning: string | null = null;
+    if (remMetrics.axleEst) {
+      if (remMetrics.axleEst.drivePct > 100) {
+        warning = `Drive tandem overloaded (${remMetrics.axleEst.drivePct}% rating) after Stop ${currentStop} drop.`;
+      } else if (remMetrics.axleEst.steerPct > 100) {
+        warning = `Steer axle overloaded (${remMetrics.axleEst.steerPct}% rating) after Stop ${currentStop} drop.`;
+      } else if (remMetrics.cogXPct !== null && remMetrics.cogXPct < 40) {
+        warning = `Forward weight bias (CoG at ${Math.round(remMetrics.cogXPct)}% L) after rear cargo drop.`;
+      }
+    }
+
+    stages.push({
+      stage: sIdx + 1,
+      stop: currentStop,
+      label: sIdx === stops.length - 1 ? 'Final Destination (Empty)' : `En route to Stop ${stops[sIdx + 1]} (Post-Stop ${currentStop} Drop)`,
+      remainingUnits: remainingPlacements.length,
+      remainingWeightKg: remMetrics.loadedWeightKg,
+      cogX: remMetrics.cogX ?? null,
+      cogXPct: remMetrics.cogXPct ?? null,
+      axleEst: remMetrics.axleEst ?? null,
+      warning,
+    });
+  }
+
+  return stages;
 }
 
 export function buildChecks(
@@ -66,6 +163,7 @@ const emptyMetrics = (units: Unit[], eq: NormalizedEquipment | null): Metrics =>
   totalUnits: units.length, placedUnits: 0, occupiedVolumePct: 0, loadedWeightKg: 0,
   unknownWeightUnits: units.filter((u) => u.weightKg === null).length,
   payloadKg: eq?.payloadKg ?? null, payloadRemainingKg: eq?.payloadKg ?? null, usedLengthMm: 0, cogXPct: null,
+  cogX: null, cogY: null, cogZ: null, axleEst: null,
 });
 
 export interface AnalyzeOptions {
@@ -182,6 +280,8 @@ export function analyzeEquipment(
     reasons.push({ code: 'UNPLACED_ITEMS', severity: 'warning', labels: [], message: `Internal check discarded ${dropped.length} candidate arrangement(s) that failed independent validation.`, action: 'Report this scenario — solver/validator disagreement.' });
   }
 
+  const multiStopStages = computeMultiStopStages(units, eq, best.placements);
+
   return {
     ...base,
     status,
@@ -192,6 +292,7 @@ export function analyzeEquipment(
     metrics,
     violations: [],
     checks: buildChecks(eq, unknownW, arrangements.length > 0),
+    multiStopStages,
     solver: { version: SOLVER_VERSION, seed: settings.seed, attempts: solved.attempts, budget: settings.maxAttempts, stopReason, ms: Date.now() - t0 },
   };
 }
