@@ -1,0 +1,13 @@
+# Source this file in your shell for this project session.
+export MEMSEARCH_PROVIDER="ollama"
+export MEMSEARCH_MODEL="nomic-embed-text"
+export PM="/Users/pranay/Projects/projects-memory"
+export PROJECT_REL="trucking/products/product-01-cargo-fit"
+export AGENT_DOCTRINE_ROOT="/Users/pranay/Projects/agent-start/doctrines"
+export AGENT_DOCTRINE_SOURCE="/Users/pranay/Projects/agent-start/doctrines/OPERATING_DOCTRINE.md"
+export AGENT_DOCTRINE_VERSION="8.2"
+export AGENT_DOCTRINE_SHA256="e14bab7b1964d8b755c9e6c7f5b1c2b44e1d726033fa23aeaee6ce921e271a75"
+export AGENT_DOCTRINE_MANIFEST="/Users/pranay/Projects/agent-start/doctrines/DOCTRINE_FAMILY_MANIFEST.json"
+export AGENT_SELECTED_DOCTRINES="OPERATING_DOCTRINE.md"
+export AGENT_SESSION_CONTEXT="/Users/pranay/Projects/trucking/products/product-01-cargo-fit/docs/context/agent-start/SESSION_CONTEXT.md"
+export AGENT_KICKOFF_PROMPT="/Users/pranay/Projects/trucking/products/product-01-cargo-fit/docs/context/agent-start/AGENT_KICKOFF_PROMPT.txt"

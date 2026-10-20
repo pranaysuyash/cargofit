@@ -1,0 +1,6 @@
+label,qty,length,width,height,dim_unit,weight,weight_unit,rotation,stackable
+Pipe bundle,2,3500,400,400,mm,180,kg,any,yes
+Tall cabinet (keep upright),1,600,600,2150,mm,95,kg,fixed,no
+Sofa 3-seat,2,2200,950,900,mm,70,kg,upright,no
+Door slab,4,2100,900,50,mm,22,kg,any,yes
+Glass panel (this side up),1,2300,40,1400,mm,150,kg,fixed,no

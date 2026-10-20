@@ -1,0 +1,36 @@
+Use sources in this order:
+1) $HOME/AGENTS.md (or /Users/pranay/AGENTS.md on this machine)
+2) $HOME/Projects/AGENTS.md (or /Users/pranay/Projects/AGENTS.md on this machine)
+3) trucking/products/product-01-cargo-fit/AGENTS.md (canonical local instruction surface; recognized tool-specific names should symlink to it)
+4) trucking/products/product-01-cargo-fit/OPERATING_DOCTRINE.md (generated project copy of the canonical operating doctrine at /Users/pranay/Projects/agent-start/doctrines, if present)
+5) Task-relevant specialist doctrines at the canonical root /Users/pranay/Projects/agent-start/doctrines (see the routing record in SESSION_CONTEXT.md)
+6) Other repo-local, path-specific guidance if present. Compatibility names such as QWEN.md, CODEX.md, copilot-instructions.md, and .cursorrules must not become competing editable instruction sources.
+7) Project-local docs/prompts/worklogs under trucking/products/product-01-cargo-fit
+8) trucking/products/product-01-cargo-fit/docs/context/AGENT_INTELLIGENCE_GRAPH.md (if present)
+9) trucking/products/product-01-cargo-fit/docs/context/agent-start/SESSION_CONTEXT.md
+10) $PM/sources/... (set by STEP1_ENV.sh; defaults to $HOME/Projects/projects-memory)
+
+Rules:
+- Cite concrete file paths for decisions or constraints.
+- If sources conflict, show the conflict and ask before proceeding.
+- Prefer latest dated docs when available.
+- Treat trucking/products/product-01-cargo-fit/OPERATING_DOCTRINE.md as the generated project copy of the canonical operating doctrine. The canonical doctrine family root is /Users/pranay/Projects/agent-start/doctrines; no other location is doctrine authority.
+- Selected specialist doctrines for this task: OPERATING_DOCTRINE.md
+  Read a selected specialist doctrine from its canonical path (with the version/hash recorded in SESSION_CONTEXT.md) when entering that mode of work. Candidate doctrines are optional; not_required doctrines are not loaded. Do not load the whole family by default.
+- Treat trucking/products/product-01-cargo-fit/.agent/* as compatibility mirrors only.
+- Begin with a read-only status and drift check: inspect current code, docs, worklogs, and relevant repo status because parallel agents may have changed the ground truth.
+- Before editing and before finalizing, re-check the files and docs you rely on, then adapt to newer evidence.
+- Use relevant skills after checking the configured skill locations; do not default to one toolset when a better domain skill exists.
+- Think from first principles and optimize for long-term, scalable, architecturally coherent solutions. Existing code is evidence, not a boundary.
+- Avoid duplicate or parallel systems; extend canonical routes, pipelines, validation, docs, and tools unless a replacement path is explicitly chosen.
+- Use read-only git inspection only unless the user explicitly permits staging, commits, pushes, resets, checkouts, or other write/destructive operations in the current conversation.
+- Before any separately authorized commit, read the full current OPERATING_DOCTRINE.md, refresh the repo attestation with "python3 $PM/scripts/attest_motto.py --repo $PWD", and include the required doctrine review trailers. The managed hooks enforce this in prepare-commit-msg, pre-commit, and commit-msg.
+- Never bypass the gate with core.hooksPath=/dev/null, git commit --no-verify, or an equivalent config/environment override; the Projects Git command guard blocks these invocations.
+- Research online when facts may be current, external, or uncertain; cite sources when research affects decisions.
+- Test changes, verify regressions, document findings/questions/decisions/follow-ups in durable project docs, then re-run agent-start after major updates.
+- For explicit role/persona calls, persona-council or specialist requests, random repository document audits, or consequential work that needs multiple distinct expertise areas, use $council-orchestrator. A named persona is normally the Lead, not the whole council; resolve supporting canonical personas, applicable skills, evidence gaps, and bounded runtime Seats dynamically. On activation, load the installed operational adapter first, then read the source-pointer manifest at /Users/pranay/Projects/agent-start/COUNCIL_AND_AUDIT_SOURCES.json, then read the complete current source recorded as council_orchestrator_source. A `SOURCE_UPDATED` result is drift information; continue reading the canonical source and surface stale adapter reconciliation.
+- For a random repository document review, use $random-repository-document-audit. It selects and understands the document first, performs bounded initial repository reconnaissance, delegates expertise routing to $council-orchestrator, then completes evidence verification and re-orchestrates if the problem changes. On activation, load the installed operational adapter first, then read the source-pointer manifest at /Users/pranay/Projects/agent-start/COUNCIL_AND_AUDIT_SOURCES.json, then read the complete current source recorded as random_repository_document_audit_source. A `SOURCE_UPDATED` result is drift information; continue reading the canonical source and surface stale adapter reconciliation. Keep the audit and council individually callable and do not implement the recommended work during the audit.
+- The source manifest is the single path authority for these two workflow Markdown files. Do not hard-code a dated persona repository, invent a speciality persona, or treat a derived cache as canonical.
+- A project-local Understanding_Personas_* companion and its generated Agent Start context are operational context only; resolve the canonical persona repository through the council resolver and record the chosen source. They must not outrank the resolver result.
+- Shared skill source: /Users/pranay/.agents/skills; Codex and workspace discovery aliases may expose the same canonical directories. Do not duplicate or edit a generated skill mirror.
+- Skill retrieval layer: OpenSpace (HKUDS) is installed at /Users/pranay/Projects/OpenSpace and its openspace MCP server is registered for Claude Code, Codex, Gemini, Qwen, and ZCode. Use the search_skills MCP tool (or the openspace CLI) to search the full cross-harness skill corpus before writing a new skill, and read /Users/pranay/Projects/runbooks/openspace.md before upgrading or reconfiguring it.

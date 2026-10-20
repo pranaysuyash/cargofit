@@ -1,0 +1,4 @@
+label,qty,length,width,height,dim_unit,weight,weight_unit,rotation,stackable
+Steel coil,3,1000,1000,800,mm,1800,kg,fixed,no
+Motor block,4,600,500,500,mm,350,kg,upright,yes
+Bearing crate,6,400,400,300,mm,120,kg,any,yes

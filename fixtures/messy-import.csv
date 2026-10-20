@@ -1,0 +1,9 @@
+Item,Quantity,Length,Width,Height,Unit,Weight,Weight Unit,Rotation,Stackable
+Pallet A,2,1.2,0.8,1.1,m,300,kg,upright,yes
+Pallet A,1,1200,800,1100,mm,300,kg,upright,yes
+Carton 24x16x16,10,24,16,16,in,,,,
+Bad zero,1,0,500,500,mm,20,kg,any,yes
+Negative width,1,500,-40,500,mm,20,kg,any,yes
+Typo number,1,abc,500,500,mm,20,kg,any,yes
+Mystery box,3,60,40,,cm,12,kg,any,yes
+Heavy drum,2,60,60,90,cm,200,lb,upright,no

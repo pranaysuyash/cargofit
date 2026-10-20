@@ -1,0 +1,7 @@
+label,qty,length,width,height,dim_unit,weight,weight_unit,rotation,stackable
+Euro pallet - retail goods,4,1200,800,1100,mm,320,kg,upright,yes
+US GMA pallet - appliances,1,48,40,52,in,550,lb,upright,no
+Steel shelving kit,2,2400,300,200,mm,45,kg,any,yes
+Carton case - mixed,24,600,400,400,mm,14,kg,any,yes
+Display glass crate,3,1500,150,1000,mm,38,kg,fixed,no
+Machine part crate,1,1800,900,900,mm,420,kg,upright,no
