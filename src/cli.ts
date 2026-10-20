@@ -14,6 +14,8 @@ import { computeSecurementPlan } from './engine/securement';
 import { exportToGltf } from './engine/gltf';
 import type { EquipmentProfile, Scenario } from './engine/types';
 
+declare const process: any;
+
 export interface CliArgs {
   command?: string;
   manifestPath?: string;
@@ -161,4 +163,9 @@ Options:
   }
 
   return 0;
+}
+
+if (typeof process !== 'undefined' && process.argv && process.argv[1]?.includes('cargofit')) {
+  const code = runCli(process.argv);
+  if (code !== 0) process.exit(code);
 }

@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "build:cli": "vite build --config vite.cli.config.ts",
     "deploy": "wrangler pages deploy dist --project-name=cargofit --branch=main"
   },
   "dependencies": {
