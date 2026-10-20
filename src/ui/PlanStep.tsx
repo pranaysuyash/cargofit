@@ -31,7 +31,7 @@ export function PlanStep(p: AppApi) {
   const [query, setQuery] = useState('');
   const [explode, setExplode] = useState(0);
   const [sliceX, setSliceX] = useState<number | null>(null);
-  const [blueprint, setBlueprint] = useState(false);
+  const [blueprint, setBlueprint] = useState(true);
   const [showCoG, setShowCoG] = useState(true);
   const [dockMode, setDockMode] = useState(false);
   const [nudgeStep, setNudgeStep] = useState(100);
