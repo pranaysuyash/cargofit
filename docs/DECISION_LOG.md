@@ -39,3 +39,17 @@
 - **Context:** Users need versioned scenario management without mandatory SaaS login or backend database dependencies in early product phases.
 - **Decision:** Scenario revisions and full solver results are persisted to `localStorage`. Every write performs an immediate read-back verification against the payload before the UI displays a "Saved" confirmation.
 - **Consequences:** Safe, confidential client-side data retention. No silent data loss due to quota exhaustion.
+
+---
+
+### ADR-06: Isometric Spatial UI/UX Doctrine & Five-Paradigm Specification
+- **Date:** 20 October 2026
+- **Context:** Spatial inspection in 53ft trailers suffers from deep-tunnel occlusion, lack of tactile feedback, and decoupling of physical weight distribution (Center of Gravity / axle envelope) from 3D geometry.
+- **Decision:** Adopted the 5-paradigm spatial specification formulated by the Isometric UI/UX Council ([ISOMETRIC_UI_UX_COUNCIL.md](file:///Users/pranay/Projects/trucking/products/product-01-cargo-fit/docs/ISOMETRIC_UI_UX_COUNCIL.md)):
+  1. *Pure SVG Axonometry with Directional Bevels and Floor Shadows.*
+  2. *Dynamic Longitudinal Cutaway (`sliceX`) & Volumetric Exploded Assembly (`explode`).*
+  3. *Tactile Dock HUD with single-thumb sequence execution and high-contrast sunlight rendering.*
+  4. *Direct Isometric Axis Gizmo with magnetic surface snapping and live collision feedback.*
+  5. *Integrated Telemetry Manifold with real-time 3D Center-of-Gravity plumb-bob and axle load envelope.*
+- **Consequences:** Elevates the application from a standard packing visualizer to an industrial-grade spatial instrument while preserving zero-dependency vector export parity.
+

@@ -44,3 +44,11 @@
   - Keyboard accessible spatial controls: Arrow keys, Page Up/Down, and `R` for rotating items with instantaneous live re-validation.
   - Complies with `prefers-reduced-motion` by disabling automatic loading animations and falling back to manual step sliders.
   - Mobile responsive down to 360px viewport width with bottom navigation rail.
+
+---
+
+## Specialized Council Session 2: Isometric 3D & Novel Spatial UI/UX
+
+For the deep-dive council proceedings on 3D isometric visualization, occlusion mitigation, volumetric exploding, Center of Gravity (CoG) projection, and the Tactical Dock HUD, see:
+- [ISOMETRIC_UI_UX_COUNCIL.md](file:///Users/pranay/Projects/trucking/products/product-01-cargo-fit/docs/ISOMETRIC_UI_UX_COUNCIL.md)
+
