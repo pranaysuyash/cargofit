@@ -412,4 +412,22 @@ describe('performance', () => {
     expect(gltf.materials.length).toBeGreaterThanOrEqual(2);
     expect(gltf.buffers[0].uri).toContain('data:application/octet-stream;base64,');
   });
+
+  it('verifies optical barcode and QR code matching against target units', async () => {
+    const { verifyBarcodeMatch } = await import('../src/engine/barcode');
+    const exact = verifyBarcodeMatch('BOX-042', 'BOX-042', 'Industrial Machine Part');
+    expect(exact.matched).toBe(true);
+    expect(exact.matchedBy).toBe('unit_id');
+
+    const skuMatch = verifyBarcodeMatch('Industrial Machine Part', 'BOX-042', 'Industrial Machine Part');
+    expect(skuMatch.matched).toBe(true);
+    expect(skuMatch.matchedBy).toBe('sku_label');
+
+    const embedded = verifyBarcodeMatch('(01)00012345678901(21)BOX-042', 'BOX-042', 'Part');
+    expect(embedded.matched).toBe(true);
+    expect(embedded.matchedBy).toBe('partial');
+
+    const mismatch = verifyBarcodeMatch('RANDOM-999', 'BOX-042', 'Part');
+    expect(mismatch.matched).toBe(false);
+  });
 });

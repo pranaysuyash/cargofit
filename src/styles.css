@@ -419,5 +419,28 @@ tr.hov { background: color-mix(in oklch, var(--ok-bg) 60%, white); outline: 1.5p
   flex-wrap: wrap;
 }
 
+/* Dock HUD Barcode Scanner */
+.dock-barcode-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+.dock-barcode-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 260px;
+}
+.dock-barcode-form input {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
 
 

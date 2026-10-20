@@ -7,6 +7,7 @@ import { renderIso, renderSide, renderTop, rowColors } from '../engine/viz';
 import { validatePlacements, EPS } from '../engine/validator';
 import { evaluateBridgeCompliance } from '../engine/bridge';
 import { computeSecurementPlan } from '../engine/securement';
+import { verifyBarcodeMatch } from '../engine/barcode';
 import type { Placement } from '../engine/types';
 import type { AppApi } from './App';
 import { NumInput, StatusBadge } from './common';
@@ -35,6 +36,9 @@ export function PlanStep(p: AppApi) {
   const [nudgeStep, setNudgeStep] = useState(100);
   const [activeStageIdx, setActiveStageIdx] = useState(0);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [barcodeInput, setBarcodeInput] = useState('');
+  const [scanStatus, setScanStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
   const vref = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
   const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -413,6 +417,67 @@ export function PlanStep(p: AppApi) {
                     <div><span>Weight:</span> <b>{activeStepUnitInfo?.weightKg ? fmtKgDual(activeStepUnitInfo.weightKg) : 'Unknown weight'}</b></div>
                     <div><span>Target Bay Position:</span> <b>X: {fmtMmDual(activeStepUnit.x)} · Y: {fmtMmDual(activeStepUnit.y)} · Z: {fmtMmDual(activeStepUnit.z)}</b></div>
                     <div><span>Orientation:</span> <b>{activeStepUnit.dx >= activeStepUnit.dy ? 'Lengthwise (along trailer)' : 'Crosswise (across width)'}</b></div>
+                  </div>
+
+                  <div className="dock-barcode-bar">
+                    <button
+                      type="button"
+                      className={`btn sm ${showScanner ? 'primary' : 'ghost'}`}
+                      onClick={() => setShowScanner(!showScanner)}
+                    >
+                      📷 {showScanner ? 'Close Scanner' : 'Scan Pallet Barcode'}
+                    </button>
+                    {showScanner && (
+                      <form
+                        className="dock-barcode-form"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (barcodeInput.trim()) {
+                            const res = verifyBarcodeMatch(barcodeInput, activeStepUnit.unitId, activeStepUnit.label);
+                            if (res.matched) {
+                              setScanStatus({ ok: true, msg: `✓ Tag match: ${activeStepUnit.unitId} verified` });
+                              const next = currentStepNum + 1;
+                              setUpTo(next >= working.length ? null : next);
+                              const targetUnit = working.find((w) => w.order === next);
+                              if (targetUnit) setSel(targetUnit.unitId);
+                              setBarcodeInput('');
+                              setTimeout(() => setScanStatus(null), 3000);
+                            } else {
+                              setScanStatus({ ok: false, msg: `⚠ Tag "${barcodeInput}" mismatch for ${activeStepUnit.unitId}` });
+                            }
+                          }
+                        }}
+                      >
+                        <input
+                          type="text"
+                          className="txt mono"
+                          placeholder={`Scan tag for ${activeStepUnit.unitId}…`}
+                          value={barcodeInput}
+                          onChange={(e) => setBarcodeInput(e.target.value)}
+                          autoFocus
+                        />
+                        <button type="submit" className="btn sm primary">Verify</button>
+                        <button
+                          type="button"
+                          className="btn sm ghost"
+                          onClick={() => {
+                            setScanStatus({ ok: true, msg: `✓ Direct confirm: ${activeStepUnit.unitId} verified` });
+                            const next = currentStepNum + 1;
+                            setUpTo(next >= working.length ? null : next);
+                            const targetUnit = working.find((w) => w.order === next);
+                            if (targetUnit) setSel(targetUnit.unitId);
+                            setTimeout(() => setScanStatus(null), 3000);
+                          }}
+                        >
+                          Quick Confirm
+                        </button>
+                      </form>
+                    )}
+                    {scanStatus && (
+                      <span className={`chip sm ${scanStatus.ok ? 'ok' : 'err'}`}>
+                        {scanStatus.msg}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
