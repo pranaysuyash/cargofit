@@ -21,6 +21,8 @@ export interface VizCtx {
   placements: Placement[];
   colors: Map<string, VizColor>;
   selectedId?: string | null;
+  /** Hovered unit ID for cross-highlighting from table to 3D canvas */
+  hoveredId?: string | null;
   badIds?: Set<string>;
   /** show only the first N placements (loading sequence) */
   upTo?: number;
@@ -61,18 +63,19 @@ function tip(p: Placement): string {
 function itemAttrs(ctx: VizCtx, p: Placement): { fill: string; stroke: string; sw: number; extra: string; opacity: number } {
   const c = ctx.colors.get(p.rowUid) ?? { fill: '#ccc', stroke: '#555', hue: 0 };
   const sel = ctx.selectedId === p.unitId;
+  const hov = ctx.hoveredId === p.unitId && !sel;
   const bad = ctx.badIds?.has(p.unitId);
   const isDimmed = ctx.filterRowUid && p.rowUid !== ctx.filterRowUid;
   
   let opacity = 0.88;
-  if (ctx.xray && !sel && !bad) opacity = 0.28;
-  if (isDimmed) opacity = 0.15;
-  if (sel) opacity = 1.0;
+  if (ctx.xray && !sel && !bad && !hov) opacity = 0.28;
+  if (isDimmed && !hov) opacity = 0.15;
+  if (sel || hov) opacity = 1.0;
 
   return {
     fill: c.fill,
-    stroke: bad ? 'oklch(0.55 0.24 25)' : sel ? ACCENT : c.stroke,
-    sw: sel ? 3.5 : bad ? 2.5 : 1.2,
+    stroke: bad ? 'oklch(0.55 0.24 25)' : sel ? ACCENT : hov ? 'oklch(0.70 0.19 145)' : c.stroke,
+    sw: sel ? 3.5 : hov ? 2.8 : bad ? 2.5 : 1.2,
     extra: bad ? ' stroke-dasharray="6 3"' : '',
     opacity,
   };

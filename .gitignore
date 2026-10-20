@@ -24,3 +24,11 @@ yarn-error.log*
 # Local environment / overrides
 .env.local
 .env.*.local
+
+# Cloudflare / Wrangler local cache
+.wrangler/
+
+# Generated doctrine review artifacts
+docs/reviews/motto_review.md
+test-results/
+playwright-report/

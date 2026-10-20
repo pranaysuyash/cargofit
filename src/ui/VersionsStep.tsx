@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
-import { buildHtmlReport, buildInteractiveHtmlReport, buildPlanFile, LIMITATIONS, placementsCsv } from '../engine/report';
+import { buildHtmlReport, buildInteractiveHtmlReport, buildWorkOrderHtml, buildPlanFile, LIMITATIONS, placementsCsv } from '../engine/report';
+import { exportToGltf } from '../engine/gltf';
+import { expandUnits, normalizeEquipment } from '../engine/normalize';
 import { cargoToCsv } from '../engine/csv';
 import { diffRows, diffResults, summarize } from '../engine/scenario';
 import { deleteScenario, loadAll } from '../engine/storage';
@@ -24,7 +26,7 @@ export function VersionsStep(p: AppApi) {
     const placements = (key && p.edits[key]) || result.arrangements[arrIdx].placements;
     return buildPlanFile({ scenario, result, placements, arrangementName: result.arrangements[arrIdx].name, edited, inputHash: p.hash });
   };
-  const exportAs = (kind: 'json' | 'csv' | 'html' | 'open' | 'interactive') => {
+  const exportAs = (kind: 'json' | 'csv' | 'html' | 'open' | 'interactive' | 'workorder' | 'gltf') => {
     if (!ready) { p.notify('warn', 'Plans are stale or still computing. Wait until “Plans up to date”, then export.'); return; }
     const plan = makePlan();
     if (!plan) { p.notify('err', 'No computed plan to export.'); return; }
@@ -34,6 +36,21 @@ export function VersionsStep(p: AppApi) {
     if (kind === 'csv') ok = download(`${base}.placements.csv`, placementsCsv(plan), 'text/csv');
     if (kind === 'html') ok = download(`${base}.report.html`, buildHtmlReport(plan), 'text/html');
     if (kind === 'interactive') ok = download(`${base}.interactive-3d.html`, buildInteractiveHtmlReport(plan), 'text/html');
+    if (kind === 'gltf') {
+      const eqProfile = scenario.equipment.find((e) => e.id === result!.equipmentId);
+      const eq = eqProfile ? normalizeEquipment(eqProfile) : null;
+      if (eq) {
+        const units = expandUnits(scenario.rows);
+        ok = download(`${base}.scene.gltf`, exportToGltf(eq, plan.placements, units), 'model/gltf+json');
+      }
+    }
+    if (kind === 'workorder') {
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(buildWorkOrderHtml(plan)); w.document.close(); ok = true; }
+      else { ok = download(`${base}.work-order.html`, buildWorkOrderHtml(plan), 'text/html'); }
+      if (ok) p.notify('ok', 'Loading work order generated for print / PDF export.');
+      return;
+    }
     if (kind === 'open') {
       const w = window.open('', '_blank');
       if (w) { w.document.write(buildHtmlReport(plan)); w.document.close(); ok = true; }
@@ -75,8 +92,10 @@ export function VersionsStep(p: AppApi) {
             <>
               <div className="exports">
                 <button className="btn primary" disabled={!ready} onClick={() => exportAs('interactive')} title="Single-file offline HTML with embedded 3D viewer, rotation, and loading player">★ Interactive 3D (.html)</button>
+                <button className="btn" disabled={!ready} onClick={() => exportAs('workorder')} title="Physical loading checklist and driver bill-of-lading print sheet">📋 Loading Work Order</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('html')}>Report (HTML, printable)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('open')}>Open report to print/PDF</button>
+                <button className="btn" disabled={!ready} onClick={() => exportAs('gltf')} title="Export Khronos glTF 2.0 3D CAD model for Blender, Three.js, or Unity">🧊 3D CAD (.gltf)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('json')}>Plan file (JSON)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('csv')}>Placements (CSV)</button>
                 <button className="btn" onClick={() => { const ok = download(`${slug(scenario.name)}.cargo.csv`, cargoToCsv(scenario.rows), 'text/csv'); p.notify(ok ? 'ok' : 'err', ok ? 'Manifest CSV downloaded.' : 'Download failed.'); }}>Manifest (CSV)</button>

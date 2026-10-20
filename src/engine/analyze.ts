@@ -45,6 +45,14 @@ export function computeMetrics(units: Unit[], eq: NormalizedEquipment, placement
     const steerLimit = 5443;
     const driveLimit = 15422;
     const tandemLimit = 15422;
+
+    // US Federal Bridge Formula B (23 CFR § 658.17): W = 500 * (LN / (N - 1) + 12N + 36)
+    // For 5-axle standard rig (N=5): W_lbs = 500 * (1.25 * L_ft + 96), capped at 80,000 lbs (36,287 kg)
+    const lengthFt = eq.L / 304.8;
+    const bridgeFormulaMaxLbs = Math.min(80000, 500 * (1.25 * lengthFt + 96));
+    const bridgeFormulaLimitKg = Math.round(bridgeFormulaMaxLbs * 0.45359237);
+    const bridgeFormulaCompliant = weight <= bridgeFormulaLimitKg && driveKg <= driveLimit && trailerKg <= tandemLimit && steerKg <= steerLimit;
+
     axleEst = {
       steerKg,
       driveKg,
@@ -52,6 +60,8 @@ export function computeMetrics(units: Unit[], eq: NormalizedEquipment, placement
       steerPct: Math.round((steerKg / steerLimit) * 100),
       drivePct: Math.round((driveKg / driveLimit) * 100),
       trailerPct: Math.round((trailerKg / tandemLimit) * 100),
+      bridgeFormulaCompliant,
+      bridgeFormulaLimitKg,
     };
   }
 

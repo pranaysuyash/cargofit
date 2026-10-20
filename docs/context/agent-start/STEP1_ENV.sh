@@ -1,6 +1,6 @@
 # Source this file in your shell for this project session.
-export MEMSEARCH_PROVIDER="ollama"
-export MEMSEARCH_MODEL="nomic-embed-text"
+export MEMSEARCH_PROVIDER="openai"
+export MEMSEARCH_MODEL="text-embedding-3-small"
 export PM="/Users/pranay/Projects/projects-memory"
 export PROJECT_REL="trucking/products/product-01-cargo-fit"
 export AGENT_DOCTRINE_ROOT="/Users/pranay/Projects/agent-start/doctrines"

@@ -6,7 +6,7 @@ import { validatePlacements } from '../src/engine/validator';
 import { expandUnits, normalizeEquipment, validateRows } from '../src/engine/normalize';
 import { toMm, toKg } from '../src/engine/units';
 import { computeMetrics, computeMultiStopStages } from '../src/engine/analyze';
-import { buildHtmlReport, buildPlanFile } from '../src/engine/report';
+import { buildHtmlReport, buildWorkOrderHtml, buildPlanFile } from '../src/engine/report';
 import { recommendFleet } from '../src/engine/fleet';
 import { renderIso, rowColors } from '../src/engine/viz';
 import type { CargoRow, EquipmentProfile, Placement, Scenario, Unit } from '../src/engine/types';
@@ -340,5 +340,76 @@ describe('performance', () => {
     expect(html).toContain('Drive Tandem');
     expect(html).toContain('Trailer Tandem');
     expect(html).toContain('OPTIMAL CoG TARGET');
+
+    const wo = buildWorkOrderHtml(planFile);
+    expect(wo).toContain('Cargo Fit — Load Execution Work Order');
+    expect(wo).toContain('Step-by-Step Loading Checklist');
+    expect(wo).toContain('Forklift Operator / Lead Loader');
+  });
+
+  it('evaluates Federal Bridge Formula B statutory caps and KPRA spacing', async () => {
+    const { calculateBridgeFormulaWeight, evaluateBridgeCompliance } = await import('../src/engine/bridge');
+    // For 2 axles spaced 4 feet apart: 500 * ( (4*2)/(2-1) + 24 + 36 ) = 500 * (8 + 60) = 34,000 lbs
+    expect(calculateBridgeFormulaWeight(4, 2)).toBe(34000);
+    // For 4 axles spaced 36 feet apart: 500 * ( (36*4)/3 + 48 + 36 ) = 500 * (48 + 84) = 66,000 lbs
+    expect(calculateBridgeFormulaWeight(36, 4)).toBe(66000);
+
+    // Standard legal 53ft load (30,000 lbs cargo, centered)
+    const report = evaluateBridgeCompliance({
+      equipmentLengthMm: 16150,
+      cargoWeightKg: 13608, // ~30,000 lbs
+      cargoCogXMm: 8000,
+    });
+    expect(report.allCompliant).toBe(true);
+    expect(report.gvwCompliant).toBe(true);
+    expect(report.overallGvwLbs).toBeLessThanOrEqual(80000);
+    expect(report.kpraCompliant).toBe(true);
+
+    // Severe overweight load (70,000 lbs cargo => GVW > 100,000 lbs)
+    const overload = evaluateBridgeCompliance({
+      equipmentLengthMm: 16150,
+      cargoWeightKg: 31751, // ~70,000 lbs
+      cargoCogXMm: 8000,
+    });
+    expect(overload.allCompliant).toBe(false);
+    expect(overload.gvwCompliant).toBe(false);
+    expect(overload.reasons.some((r) => r.includes('Gross Vehicle Weight violation'))).toBe(true);
+  });
+
+  it('computes cargo tie-down securement and working load limits per 49 CFR § 393', async () => {
+    const { computeSecurementPlan } = await import('../src/engine/securement');
+    const u1: Unit = { id: 'u1', rowUid: 'r1', label: 'Crate A', dims: [1200, 1000, 1200], weightKg: 800, rotation: 'any', stackable: true, stop: 1 };
+    const u2: Unit = { id: 'u2', rowUid: 'r2', label: 'Heavy Coil', dims: [3500, 1500, 1500], weightKg: 5000, rotation: 'any', stackable: true, stop: 1 };
+    const placements: Placement[] = [
+      { unitId: 'u1', rowUid: 'r1', label: 'Crate A', x: 0, y: 0, z: 0, dx: 1200, dy: 1000, dz: 1200, order: 1, stop: 1 },
+      { unitId: 'u2', rowUid: 'r2', label: 'Heavy Coil', x: 2000, y: 0, z: 0, dx: 3500, dy: 1500, dz: 1500, order: 2, stop: 1 },
+    ];
+
+    const plan = computeSecurementPlan([u1, u2], placements, { deckMaterial: 'wood_hardwood' });
+    expect(plan.deckFrictionMu).toBe(0.40);
+    expect(plan.totalTieDownsCount).toBeGreaterThanOrEqual(4);
+    // Aggregate WLL must be >= 50% of cargo weight (5800 kg * 2.20462 * 0.5 = ~6,393 lbs)
+    expect(plan.totalRequiredWllLbs).toBeGreaterThanOrEqual(6000);
+    expect(plan.articles[0].blockedForward).toBe(true);
+    expect(plan.articles[1].blockedForward).toBe(false);
+    expect(plan.unblockedForwardCount).toBe(1);
+  });
+
+  it('exports valid Khronos glTF 2.0 3D scene representation', async () => {
+    const { exportToGltf } = await import('../src/engine/gltf');
+    const eqn = normalizeEquipment({
+      id: 'test-eq', name: 'Test Box', length: 6000, width: 2400, height: 2400,
+      unit: 'm', payload: 5000, massUnit: 'kg', doorWidth: 2300, doorHeight: 2300,
+      included: true, cost: null, currency: 'USD', costSource: 'none', source: 'test'
+    })!;
+    const u: Unit = { id: 'u1', rowUid: 'r1', label: 'Pallet 1', dims: [1200, 1000, 1000], weightKg: 500, rotation: 'any', stackable: true, stop: 1 };
+    const placements: Placement[] = [{ unitId: 'u1', rowUid: 'r1', label: 'Pallet 1', x: 0, y: 0, z: 0, dx: 1200, dy: 1000, dz: 1000, order: 1, stop: 1 }];
+
+    const gltfStr = exportToGltf(eqn, placements, [u]);
+    const gltf = JSON.parse(gltfStr);
+    expect(gltf.asset.version).toBe('2.0');
+    expect(gltf.nodes.length).toBe(2); // 1 container boundary + 1 cargo unit
+    expect(gltf.materials.length).toBeGreaterThanOrEqual(2);
+    expect(gltf.buffers[0].uri).toContain('data:application/octet-stream;base64,');
   });
 });

@@ -1,9 +1,9 @@
 # Session Context
 
-- Generated: 2026-10-20T10:37:14Z
+- Generated: 2026-10-20T16:56:28Z
 - Project: `trucking/products/product-01-cargo-fit`
-- Provider: `ollama`
-- Model: `nomic-embed-text`
+- Provider: `openai`
+- Model: `text-embedding-3-small`
 - Project collection: `projects_proj_trucking_products_product_01_cargo_fit`
 - Shared collection: `projects_workspace_shared`
 
@@ -13,7 +13,7 @@
 - Operating doctrine: `OPERATING_DOCTRINE.md` v8.2 (sha256 `e14bab7b1964d8b7…`) — always applies
 - Project: `trucking/products/product-01-cargo-fit`
 - Routing mechanism: agent-start doctrine-family router v1.1 (deterministic intent-signal model)
-- Generated at: 2026-10-20T10:37:14Z
+- Generated at: 2026-10-20T16:56:28Z
 - Generator: agent-start lib/doctrine_family.py
 
 Doctrine routing for this run (task intent not supplied; deferred):

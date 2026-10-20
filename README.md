@@ -7,11 +7,15 @@
 
 ## 1. Product Identity & Purpose
 **Cargo Fit** is **Product 01** under the broader **TRUCKING** project. It is an independent, demo-ready, local-first web product built to help operational users (dispatchers, shippers, 3PL coordinators, warehouse supervisors):
-1. **Intake & Repair Manifests:** Import messy CSV/TSV manifests or manually edit units with strict field-level validation and zero-guessing of missing values.
-2. **Compare Equipment Honestly:** Evaluate candidate vehicles (vans, box trucks, ISO sea containers, 53ft dry vans) against explicit modeled constraints.
+- **Live Production URL:** [https://cargofit.pages.dev](https://cargofit.pages.dev) (Hosted on Cloudflare Pages)
+- **GitHub Repository:** [https://github.com/pranaysuyash/cargofit](https://github.com/pranaysuyash/cargofit)
+
+1. **Intake & Repair Manifests:** Import messy CSV/TSV manifests or multi-sheet Excel `.xlsx` workbooks with strict field-level validation and zero-guessing of missing values.
+2. **Compare Equipment Honestly:** Evaluate candidate vehicles (vans, box trucks, ISO sea containers, 53ft dry vans) against explicit modeled constraints with multi-vehicle Fleet Allocation recommendations.
 3. **Understand Rejections:** If an option fails, see the exact cause (item exceeds interior, door opening too small, rotation prohibited, payload exceeded) rather than a vague percentage.
-4. **Inspect & Adjust Spatial Plans:** View orthographic Top, Side, and 4-yaw Isometric vector plans with step-by-step loading sequence, and nudge/rotate items with instant re-validation.
-5. **Durable Local Persistence & Exports:** Save versioned revisions in the browser with read-back verification, and export standalone printable HTML reports, JSON plans, and CSV placements.
+4. **Inspect & Adjust Spatial Plans:** View orthographic Top, Side, and 4-yaw Isometric vector plans with step-by-step loading sequence, radial exploded assembly, longitudinal cutaway, and instant re-validation.
+5. **Driver Work Orders & Multi-Stop Delivery:** Generate official printable Loading Work Orders with physical checkboxes, verify US Federal Bridge Formula B axle compliance, and simulate multi-stop LIFO unloads.
+6. **Durable Local Persistence & Exports:** Save versioned revisions in the browser with read-back verification, and export standalone interactive 3D HTML reports, JSON plans, and CSV placements.
 
 ---
 
@@ -37,6 +41,9 @@ npm run test
 
 # Typecheck and create production build
 npm run build
+
+# Deploy directly to Cloudflare Pages (cargofit.pages.dev)
+npm run deploy
 ```
 
 ---

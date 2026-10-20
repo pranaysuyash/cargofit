@@ -1,8 +1,10 @@
 import { computeMetrics, buildChecks } from './analyze';
 import { expandUnits, normalizeEquipment } from './normalize';
-import { fmtKgDual, fmtMmDual, fmtNum } from './units';
+import { fmtKgDual, fmtMmDual, fmtNum, toKg } from './units';
 import { renderIso, renderSide, renderTop, rowColors } from './viz';
 import { validatePlacements } from './validator';
+import { evaluateBridgeCompliance } from './bridge';
+import { computeSecurementPlan } from './securement';
 import {
   SOLVER_VERSION,
   type EquipmentResult, type ModeledCheck, type Placement, type Reason, type Scenario, type Violation,
@@ -135,6 +137,50 @@ export function buildHtmlReport(plan: PlanFile): string {
   <tr><td>Composite Center of Gravity</td><td colspan="3">${m.cogX !== null && m.cogX !== undefined ? fmtMmDual(m.cogX) : '—'} (${m.cogXPct !== null ? fmtNum(m.cogXPct, 1) + '% of interior length' : '—'}) · ${m.cogXPct && m.cogXPct >= 45 && m.cogXPct <= 55 ? '<span class="st-verified">Within optimal 45–55% wheelbase envelope</span>' : '<span class="st-not_modeled">Outside 45–55% envelope — verify actual axle loads</span>'}</td></tr>
 </table>
 <p class="meta">Engineering estimate for standard semi-trailer / box geometry. Official axle weights must be verified with certified weighbridge scales.</p>` : '';
+
+  const bridge = evaluateBridgeCompliance({
+    equipmentLengthMm: eq.L,
+    cargoWeightKg: m.loadedWeightKg,
+    cargoCogXMm: m.cogX ?? (eq.L / 2),
+  });
+
+  const securement = computeSecurementPlan(units, plan.placements);
+
+  const bridgeSection = `
+<h2>Federal Bridge Formula B &amp; Axle Group Compliance (US FMCSA 23 CFR § 658.17)</h2>
+<table>
+  <tr><th>Axle Group / Benchmark</th><th>Actual Weight</th><th>Allowable Cap</th><th>Margin</th><th>Status</th></tr>
+  ${bridge.groups.map((g) => `
+    <tr>
+      <td>${esc(g.name)}${g.spacingFt ? ` (${g.spacingFt} ft span)` : ''}</td>
+      <td class="mono">${g.actualWeightLbs.toLocaleString()} lbs</td>
+      <td class="mono">${g.maxLegalWeightLbs.toLocaleString()} lbs</td>
+      <td class="mono" style="color:${g.compliant ? '#0a7a3d' : '#b30000'}">${g.marginLbs >= 0 ? '+' : ''}${g.marginLbs.toLocaleString()} lbs</td>
+      <td class="${g.compliant ? 'st-verified' : 'st-not_declared'}">${g.compliant ? 'COMPLIANT' : 'OVERLOAD'}</td>
+    </tr>
+  `).join('')}
+  <tr>
+    <th>Gross Vehicle Weight (GVW)</th>
+    <th class="mono">${bridge.overallGvwLbs.toLocaleString()} lbs</th>
+    <th class="mono">80,000 lbs</th>
+    <th class="mono" style="color:${bridge.gvwCompliant ? '#0a7a3d' : '#b30000'}">${bridge.gvwMarginLbs >= 0 ? '+' : ''}${bridge.gvwMarginLbs.toLocaleString()} lbs</th>
+    <th class="${bridge.gvwCompliant ? 'st-verified' : 'st-not_declared'}">${bridge.gvwCompliant ? 'COMPLIANT' : 'OVERLOAD'}</th>
+  </tr>
+</table>
+${bridge.kpraFt !== null ? `<p class="meta">California STAA Kingpin-to-Rear-Axle (KPRA): <b>${bridge.kpraFt.toFixed(1)} ft</b> (Legal limit: 40.0 ft max) · <span class="${bridge.kpraCompliant ? 'st-verified' : 'st-not_declared'}">${bridge.kpraCompliant ? 'California Compliant' : 'Non-Compliant (Exceeds 40 ft KPRA)'}</span></p>` : ''}
+`;
+
+  const securementSection = `
+<h2>Cargo Restraint &amp; Tie-Down Plan (FMCSA 49 CFR § 393.100–136 &amp; Load Restraint Guide)</h2>
+<table>
+  <tr><th>Securing Metric</th><th>Value</th><th>Statutory Requirement</th></tr>
+  <tr><td>Deck Friction Rating</td><td>${esc(securement.deckFrictionMu.toFixed(2))} μ</td><td>Wood/Steel benchmark</td></tr>
+  <tr><td>Total Tie-Down Hardware</td><td><b>${securement.totalTieDownsCount} tie-down(s)</b></td><td>§ 393.110 length &amp; weight rule</td></tr>
+  <tr><td>Aggregate Working Load Limit (WLL)</td><td><b>${securement.totalRequiredWllLbs.toLocaleString()} lbs</b> (${Math.round(securement.totalRequiredWllKg).toLocaleString()} kg)</td><td>≥ 50% of cargo weight (§ 393.106(d))</td></tr>
+  <tr><td>Forward Deceleration Containment (0.8g)</td><td colspan="2">${securement.unblockedForwardCount === 0 ? '<span class="st-verified">All units blocked flush against front bulkhead (0.8g supported)</span>' : `<span class="st-not_modeled">${securement.unblockedForwardCount} unit(s) unblocked forward — cross-strapping / friction mats required</span>`}</td></tr>
+</table>
+<p class="meta">${securement.recommendations.map(esc).join(' · ')}</p>
+`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Load plan — ${esc(plan.scenario.name)}</title>
 <style>
 body{font:14px/1.5 system-ui,sans-serif;color:#1b2430;max-width:960px;margin:24px auto;padding:0 16px}
@@ -156,6 +202,8 @@ table{border-collapse:collapse;width:100%;font-size:12.5px}td,th{border:1px soli
 <tr><th>Length used</th><td>${fmtMmDual(m.usedLengthMm)}</td><th>Longitudinal centroid (info only)</th><td>${m.cogXPct === null ? 'n/a' : `${fmtNum(m.cogXPct, 0)}% from front wall`}</td></tr></table>
 <p class="meta">*Sum of placed items' bounding-box volume ÷ interior volume. Not a measure of usable space or safety.</p>
 ${axleTable}
+${bridgeSection}
+${securementSection}
 <h2>Views</h2><div class="views"><div>${renderTop(ctx)}</div><div>${renderSide(ctx)}</div><div style="max-width:760px">${renderIso(ctx)}</div></div>
 <h2>Placements (x,y,z from front-left-floor corner, mm)</h2>
 <table><tr><th>#</th><th>Unit</th><th>Position</th><th>Size dx × dy × dz</th></tr>${rows}</table>
@@ -344,6 +392,201 @@ function togglePlay() {
   }
 }
 </script>
+</body>
+</html>`;
+}
+
+/**
+ * Builds a print-optimized, physical Loading Work Order and Bill-of-Lading
+ * checklist for forklift operators, dock leads, and truck drivers.
+ */
+export function buildWorkOrderHtml(plan: PlanFile): string {
+  const prof = plan.scenario.equipment.find((e) => e.id === plan.equipmentId);
+  const eq = prof ? normalizeEquipment(prof)! : null;
+  const units = expandUnits(plan.scenario.rows);
+  const unitMap = new Map(units.map((u) => [u.id, u]));
+  const colors = rowColors(plan.scenario.rows);
+
+  const topSvg = eq ? renderTop({ eq, placements: plan.placements, colors, showGrid: true }) : '';
+  const sorted = plan.placements.slice().sort((a, b) => a.order - b.order);
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Loading Work Order · ${esc(plan.scenario.name)} · ${esc(prof?.name ?? plan.equipmentId)}</title>
+<style>
+@page { size: letter portrait; margin: 10mm 12mm; }
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.35; color: #111; margin: 0; padding: 12px; }
+.header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px; }
+.title-group h1 { margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 800; }
+.title-group p { margin: 2px 0 0; font-size: 11px; color: #444; }
+.meta-box { text-align: right; font-size: 10px; font-family: ui-monospace, SFMono-Regular, monospace; }
+.badge { display: inline-block; padding: 2px 6px; font-weight: 700; font-size: 10px; border-radius: 3px; background: #eee; }
+.grid-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; font-size: 11px; }
+.meta-card { border: 1px solid #ccc; padding: 6px 8px; border-radius: 4px; background: #fafafa; }
+.meta-card span { display: block; font-size: 9.5px; text-transform: uppercase; color: #666; font-weight: 700; margin-bottom: 2px; }
+.meta-card b { font-size: 12px; font-family: ui-monospace, SFMono-Regular, monospace; }
+
+.diag-section { margin-bottom: 14px; page-break-inside: avoid; }
+.diag-title { font-weight: 700; font-size: 11px; text-transform: uppercase; margin-bottom: 4px; border-bottom: 1px solid #ddd; padding-bottom: 2px; }
+.diag-wrap { border: 1px solid #999; border-radius: 4px; padding: 4px; background: #fff; max-height: 190px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.diag-wrap svg { max-height: 180px; width: auto; max-width: 100%; }
+
+.table-section { margin-bottom: 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 10px; }
+th, td { border: 1px solid #bbb; padding: 4px 6px; text-align: left; }
+th { background: #eaeaea; font-weight: 700; text-transform: uppercase; font-size: 9px; }
+td.center { text-align: center; }
+td.mono { font-family: ui-monospace, SFMono-Regular, monospace; }
+.chk-box { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #000; border-radius: 2px; }
+
+.axle-sec { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 14px; page-break-inside: avoid; }
+.axle-card { border: 1px solid #ccc; padding: 8px; border-radius: 4px; background: #fdfdfd; }
+.axle-card h4 { margin: 0 0 6px; font-size: 10.5px; text-transform: uppercase; }
+.axle-row { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; }
+
+.sign-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; border-top: 1.5px solid #000; padding-top: 10px; margin-top: 14px; page-break-inside: avoid; }
+.sign-box { border: 1px dashed #888; border-radius: 4px; padding: 8px; min-height: 70px; display: flex; flex-direction: column; justify-content: space-between; font-size: 9.5px; }
+.sign-line { border-bottom: 1px solid #333; margin-top: 24px; }
+.disclaimer { font-size: 8.5px; color: #666; margin-top: 12px; line-height: 1.3; font-style: italic; }
+
+@media screen {
+  body { max-width: 850px; margin: 20px auto; border: 1px solid #ddd; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border-radius: 6px; background: #fff; }
+  .no-print-bar { background: #222; color: #fff; padding: 8px 14px; margin: -12px -12px 14px; border-radius: 5px 5px 0 0; display: flex; justify-content: space-between; align-items: center; }
+  .no-print-bar button { background: #38bdf8; color: #000; border: 0; font-weight: 700; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
+}
+@media print {
+  .no-print-bar { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="no-print-bar">
+  <span>📋 Print-Ready Work Order · Cargo Fit</span>
+  <button onclick="window.print()">🖨 Print Work Order</button>
+</div>
+
+<header class="header">
+  <div class="title-group">
+    <h1>Cargo Fit — Load Execution Work Order</h1>
+    <p>Dock Execution Checklist & Physical Bay Plan · Bill of Lading Attachment</p>
+  </div>
+  <div class="meta-box">
+    <div><b>Manifest:</b> ${esc(plan.scenario.name)}</div>
+    <div><b>Plan Hash:</b> ${plan.inputHash.slice(0, 10)}</div>
+    <div><b>Date:</b> ${new Date(plan.createdAt).toLocaleString()}</div>
+    <div><b>Status:</b> <span class="badge">${esc(plan.status)}</span></div>
+  </div>
+</header>
+
+<div class="grid-meta">
+  <div class="meta-card">
+    <span>Equipment Assigned</span>
+    <b>${esc(prof?.name ?? plan.equipmentId)}</b>
+    <div style="font-size:9.5px;color:#555;margin-top:2px;">${fmtMmDual(eq?.L ?? 0)} × ${fmtMmDual(eq?.W ?? 0)} × ${fmtMmDual(eq?.H ?? 0)}</div>
+  </div>
+  <div class="meta-card">
+    <span>Cargo Utilization</span>
+    <b>${plan.placements.length} of ${units.length} Units Placed</b>
+    <div style="font-size:9.5px;color:#555;margin-top:2px;">${fmtNum(plan.metrics.occupiedVolumePct)}% Volume · ${plan.unplacedUnitIds.length} Unplaced</div>
+  </div>
+  <div class="meta-card">
+    <span>Payload & Gross</span>
+    <b>${fmtKgDual(plan.metrics.loadedWeightKg)}</b>
+    <div style="font-size:9.5px;color:#555;margin-top:2px;">Limit: ${prof?.payload ? fmtKgDual(toKg(prof.payload, prof.massUnit)) : 'Not Declared'}</div>
+  </div>
+  <div class="meta-card">
+    <span>Weight Balance CoG</span>
+    <b>${plan.metrics.cogXPct !== null ? `${fmtNum(plan.metrics.cogXPct, 0)}% of Wheelbase` : 'N/A'}</b>
+    <div style="font-size:9.5px;color:#555;margin-top:2px;">${(plan.metrics.cogXPct ?? 50) >= 45 && (plan.metrics.cogXPct ?? 50) <= 55 ? '✓ Balanced within safe envelope' : '⚠ Forward/Rear Bias'}</div>
+  </div>
+</div>
+
+<section class="diag-section">
+  <div class="diag-title">Top-Down Bay Loading Blueprint (Front Bulkhead at Left → Rear Door at Right)</div>
+  <div class="diag-wrap">
+    ${topSvg}
+  </div>
+</section>
+
+<section class="table-section">
+  <div class="diag-title">Step-by-Step Loading Checklist (Load in Ascending Order: Step #1 First)</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:28px;" class="center">Done</th>
+        <th style="width:34px;" class="center">Seq</th>
+        <th>Unit ID</th>
+        <th>SKU Description</th>
+        <th class="center">Delivery Stop</th>
+        <th>Bay Position (X, Y, Z mm)</th>
+        <th>Dimensions (L × W × H mm)</th>
+        <th>Weight</th>
+        <th>Stack Rule</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${sorted.map((p) => {
+        const u = unitMap.get(p.unitId);
+        return `<tr>
+          <td class="center"><span class="chk-box"></span></td>
+          <td class="center mono"><b>#${p.order}</b></td>
+          <td class="mono"><b>${esc(p.unitId)}</b></td>
+          <td>${esc(p.label)}</td>
+          <td class="center mono">${u?.stop ? `Stop #${u.stop}` : '—'}</td>
+          <td class="mono">(${Math.round(p.x)}, ${Math.round(p.y)}, ${Math.round(p.z)})</td>
+          <td class="mono">${Math.round(p.dx)} × ${Math.round(p.dy)} × ${Math.round(p.dz)}</td>
+          <td class="mono">${u?.weightKg ? fmtKgDual(u.weightKg) : '—'}</td>
+          <td>${u?.stackable ? 'Stackable' : '<b>TOP ONLY</b>'}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+</section>
+
+<div class="axle-sec">
+  <div class="axle-card">
+    <h4>Preliminary Axle Weight & Federal Bridge Formula B Review</h4>
+    ${plan.metrics.axleEst ? `
+      <div class="axle-row"><span>Steer Axle Reaction:</span> <b class="mono">${fmtKgDual(plan.metrics.axleEst.steerKg)} (${plan.metrics.axleEst.steerPct}% rating)</b></div>
+      <div class="axle-row"><span>Drive Tandem Reaction:</span> <b class="mono">${fmtKgDual(plan.metrics.axleEst.driveKg)} (${plan.metrics.axleEst.drivePct}% rating)</b></div>
+      <div class="axle-row"><span>Trailer Tandem Reaction:</span> <b class="mono">${fmtKgDual(plan.metrics.axleEst.trailerKg)} (${plan.metrics.axleEst.trailerPct}% rating)</b></div>
+      <div class="axle-row" style="border-top:1px dashed #ccc;padding-top:3px;margin-top:3px;">
+        <span>Statutory Bridge Formula B (23 CFR § 658.17):</span>
+        <b>${plan.metrics.axleEst.bridgeFormulaCompliant ? '✓ COMPLIANT (within statutory axle-group allowance)' : '⚠ EXCEEDS inner bridge weight formula'}</b>
+      </div>
+    ` : '<p style="color:#777;margin:0;">Axle reactions unmodeled (weight incomplete or single-axle vehicle).</p>'}
+  </div>
+  <div class="axle-card">
+    <h4>Security & Inspection</h4>
+    <div style="font-size:10px;margin-bottom:6px;">Trailer Seal Number:</div>
+    <div style="border-bottom:1.5px solid #000;height:20px;font-family:monospace;font-size:12px;"></div>
+  </div>
+</div>
+
+<div class="sign-grid">
+  <div class="sign-box">
+    <div><b>Forklift Operator / Lead Loader</b></div>
+    <div>I certify this shipment was physically loaded in accordance with the verified sequence above.</div>
+    <div class="sign-line">Signature / Date</div>
+  </div>
+  <div class="sign-box">
+    <div><b>Dock Supervisor</b></div>
+    <div>I certify blocking, bracing, and door clearance were verified prior to trailer seal closure.</div>
+    <div class="sign-line">Signature / Date</div>
+  </div>
+  <div class="sign-box">
+    <div><b>Motor Carrier / Driver Acceptance</b></div>
+    <div>I acknowledge receipt of this sealed load and agree to verify axle weights at the nearest certified scale.</div>
+    <div class="sign-line">Signature / Date</div>
+  </div>
+</div>
+
+<div class="disclaimer">
+  <b>Legal & Safety Boundary Notice:</b> This loading work order provides geometric and volumetric arrangement heuristics. FMCSA 49 CFR Part 393 and NHVR regulations mandate that tiedown securement, friction coefficients, dunnage, and live axle scale weights override any computer model. Always scale prior to interstate highway transit.
+</div>
 </body>
 </html>`;
 }

@@ -5,6 +5,8 @@ import { orientationsFor } from '../engine/solver';
 import { fmtKgDual, fmtMmDual, fmtNum } from '../engine/units';
 import { renderIso, renderSide, renderTop, rowColors } from '../engine/viz';
 import { validatePlacements, EPS } from '../engine/validator';
+import { evaluateBridgeCompliance } from '../engine/bridge';
+import { computeSecurementPlan } from '../engine/securement';
 import type { Placement } from '../engine/types';
 import type { AppApi } from './App';
 import { NumInput, StatusBadge } from './common';
@@ -32,7 +34,9 @@ export function PlanStep(p: AppApi) {
   const [dockMode, setDockMode] = useState(false);
   const [nudgeStep, setNudgeStep] = useState(100);
   const [activeStageIdx, setActiveStageIdx] = useState(0);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const vref = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
   const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const arrIdx = result ? Math.min(p.arrIdx, result.arrangements.length - 1) : 0;
@@ -53,6 +57,20 @@ export function PlanStep(p: AppApi) {
   const placedIds = new Set(working.map((w) => w.unitId));
   const unplaced = units.filter((u) => !placedIds.has(u.id));
 
+  const bridgeReport = useMemo(() => {
+    if (!eq || !metrics) return null;
+    return evaluateBridgeCompliance({
+      equipmentLengthMm: eq.L,
+      cargoWeightKg: metrics.loadedWeightKg,
+      cargoCogXMm: metrics.cogX ?? 0,
+    });
+  }, [eq, metrics]);
+
+  const securementPlan = useMemo(() => {
+    if (!eq) return null;
+    return computeSecurementPlan(units, working);
+  }, [eq, units, working]);
+
   useEffect(() => { setUpTo(null); setSel(null); setPlaying(false); }, [key]);
   useEffect(() => {
     if (!playing) return;
@@ -63,6 +81,12 @@ export function PlanStep(p: AppApi) {
     }), 350);
     return () => clearInterval(t);
   }, [playing, working.length]);
+
+  useEffect(() => {
+    if (sel && rowRefs.current.has(sel)) {
+      rowRefs.current.get(sel)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [sel]);
 
   if (!result || !eq || !profile || !arr || !metrics) {
     return (
@@ -186,6 +210,7 @@ export function PlanStep(p: AppApi) {
     placements: activeStage && activeStage.stage > 0 ? stagePlacements : working,
     colors,
     selectedId: sel,
+    hoveredId,
     badIds: bad,
     upTo: upTo ?? undefined,
     rotation: rot,
@@ -305,6 +330,36 @@ export function PlanStep(p: AppApi) {
         <div><span>Centroid (info)</span><b className="mono">{(activeStage && activeStage.stage > 0 ? activeStage.cogXPct : metrics.cogXPct) === null ? 'n/a' : `${fmtNum((activeStage && activeStage.stage > 0 ? activeStage.cogXPct! : metrics.cogXPct!), 0)}% of length`}</b></div>
       </div>
 
+      {(bridgeReport || securementPlan) && (
+        <div className="arr-gallery compliance-strip" role="region" aria-label="Statutory compliance and tie-down guidance">
+          <div className="compliance-row">
+            {bridgeReport && (
+              <div className="compliance-cell">
+                <span className="arr-lbl">FMCSA Bridge Formula B:</span>
+                <span className={`chip ${bridgeReport.allCompliant ? 'ok' : 'err'}`}>
+                  {bridgeReport.allCompliant ? '✓ COMPLIANT' : '⚠ OVERLOAD VIOLATION'}
+                </span>
+                <span className="mono small">
+                  GVW: {bridgeReport.overallGvwLbs.toLocaleString()} / {bridgeReport.maxLegalGvwLbs.toLocaleString()} lbs
+                  {bridgeReport.kpraFt !== null && ` · KPRA: ${bridgeReport.kpraFt.toFixed(1)}ft (${bridgeReport.kpraCompliant ? 'CA OK' : 'CA Violation'})`}
+                </span>
+              </div>
+            )}
+            {securementPlan && (
+              <div className="compliance-cell">
+                <span className="arr-lbl">Cargo Restraints (49 CFR § 393):</span>
+                <span className="chip ok">
+                  🔗 {securementPlan.totalTieDownsCount} Tie-Down(s) Required
+                </span>
+                <span className="mono small">
+                  Min WLL: {securementPlan.totalRequiredWllLbs.toLocaleString()} lbs (≥50% weight) · Deck: {securementPlan.deckFrictionMu}μ
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="viewer">
         {dockMode && (
           <div className="dock-hud-banner" role="region" aria-label="Tactile Dock Execution Console">
@@ -376,7 +431,14 @@ export function PlanStep(p: AppApi) {
 
               {metrics.axleEst && (
                 <div className="dock-axle-summary">
-                  <span className="dock-axle-title">Axle Weight Distribution (Est.)</span>
+                  <div className="dock-axle-head-row">
+                    <span className="dock-axle-title">Axle Weight Distribution (Est.)</span>
+                    {metrics.axleEst.bridgeFormulaCompliant !== undefined && (
+                      <span className={`chip sm ${metrics.axleEst.bridgeFormulaCompliant ? 'ok' : 'warn'}`}>
+                        {metrics.axleEst.bridgeFormulaCompliant ? '✓ Bridge Formula B OK' : '⚠ Bridge Formula Alert'}
+                      </span>
+                    )}
+                  </div>
                   <div className="axle-meter">
                     <div className="axle-row">
                       <span>Steer: {fmtKgDual(metrics.axleEst.steerKg)}</span>
@@ -467,7 +529,32 @@ export function PlanStep(p: AppApi) {
           aria-label="Spatial plan. Click an item to select it. With an item selected, arrow keys move it in the floor plane, Page Up and Page Down change height, R rotates."
           onKeyDown={onKey} onClick={onPick}
           style={{ ['--zoom' as string]: zoom }}
-          dangerouslySetInnerHTML={{ __html: svg }} />
+        >
+          <div dangerouslySetInnerHTML={{ __html: svg }} style={{ width: '100%', height: '100%' }} />
+          {selP && selU && (
+            <div className="canvas-unit-hud" role="region" aria-label="Selected Cargo Unit Quick HUD">
+              <div className="canvas-hud-header">
+                <div className="canvas-hud-title">
+                  <span className="mono badge-sel">{selP.unitId}</span>
+                  <b>{selU.label}</b>
+                </div>
+                <button className="btn sm ghost icon-btn" onClick={() => setSel(null)} title="Deselect (Esc)">✕</button>
+              </div>
+              <div className="canvas-hud-grid">
+                <div><span>Dimensions:</span> <b>{fmtMmDual(selP.dx)} × {fmtMmDual(selP.dy)} × {fmtMmDual(selP.dz)}</b></div>
+                <div><span>Weight:</span> <b>{selU.weightKg ? fmtKgDual(selU.weightKg) : 'Unknown'}</b></div>
+                <div><span>Coords (x, y, z):</span> <b className="mono">({Math.round(selP.x)}, {Math.round(selP.y)}, {Math.round(selP.z)}) mm</b></div>
+                <div><span>Layer / Support:</span> <b>{selP.z <= EPS ? 'Bed floor (Tier 1)' : `Tier (+${Math.round(selP.z)} mm)`}</b></div>
+                {selU.stop && <div><span>Delivery Drop:</span> <b>Stop #{selU.stop}</b></div>}
+              </div>
+              <div className="canvas-hud-actions">
+                <button className="btn sm" disabled={!!readOnly} onClick={rotate} title="Rotate 90° (R)">⟳ Rotate (R)</button>
+                <button className="btn sm ghost" disabled={!!readOnly} onClick={dropToRest} title="Drop to bed or resting box">⤓ Drop to Rest</button>
+                <button className="btn sm danger ghost" disabled={!!readOnly} onClick={removeFromPlan} title="Remove unit from plan">✕ Remove</button>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="legend" aria-label="Colour legend">
           {scenario.rows.map((r) => <span key={r.uid}><i style={{ background: colors.get(r.uid)?.fill, borderColor: colors.get(r.uid)?.stroke }} />{r.label}</span>)}
           <span><i className="door" />door end</span>
@@ -478,7 +565,7 @@ export function PlanStep(p: AppApi) {
         <div className="panel">
           <div className="panel-h">
             <b>Placements ({filteredPlacements.length})</b>
-            <span>readable equivalent of the drawing · click to select</span>
+            <span>readable equivalent of the drawing · hover to spotlight · click to select</span>
           </div>
           <div className="search-box">
             <input type="text" className="txt" placeholder="Filter by Unit ID or label…" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -489,7 +576,14 @@ export function PlanStep(p: AppApi) {
               <thead><tr><th>#</th><th>Unit</th><th>x, y, z (mm)</th><th>dx × dy × dz</th></tr></thead>
               <tbody>
                 {filteredPlacements.map((w) => (
-                  <tr key={w.unitId} className={`${sel === w.unitId ? 'sel' : ''}${bad.has(w.unitId) ? ' has-err' : ''}`} onClick={() => setSel(w.unitId)}>
+                  <tr
+                    key={w.unitId}
+                    ref={(el) => { if (el) rowRefs.current.set(w.unitId, el); else rowRefs.current.delete(w.unitId); }}
+                    className={`${sel === w.unitId ? 'sel' : ''}${hoveredId === w.unitId ? ' hov' : ''}${bad.has(w.unitId) ? ' has-err' : ''}`}
+                    onClick={() => setSel(w.unitId)}
+                    onMouseEnter={() => setHoveredId(w.unitId)}
+                    onMouseLeave={() => setHoveredId(null)}
+                  >
                     <td className="mono">{w.order}</td>
                     <td><button className="linkbtn" onClick={() => setSel(w.unitId)}>{w.unitId}</button>{bad.has(w.unitId) && <span className="chip bad">violation</span>}</td>
                     <td className="mono">{fmtNum(w.x, 0)}, {fmtNum(w.y, 0)}, {fmtNum(w.z, 0)}</td>

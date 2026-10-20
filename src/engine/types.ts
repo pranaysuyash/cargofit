@@ -176,6 +176,10 @@ export interface AxleEstimate {
   steerPct: number;
   drivePct: number;
   trailerPct: number;
+  /** US Federal Bridge Formula B statutory compliance flag (23 CFR § 658.17) */
+  bridgeFormulaCompliant?: boolean;
+  /** Maximum legal gross vehicle weight allowed by Bridge Formula B for this wheelbase */
+  bridgeFormulaLimitKg?: number;
 }
 
 export interface Metrics {
