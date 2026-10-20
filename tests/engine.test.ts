@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { importCargoCsv } from '../src/engine/csv';
+import { importCargoCsv, importCargoTable } from '../src/engine/csv';
 import { analyzeScenario, DEFAULT_SETTINGS } from '../src/engine/scenario';
 import { validatePlacements } from '../src/engine/validator';
 import { expandUnits, normalizeEquipment, validateRows } from '../src/engine/normalize';
 import { toMm, toKg } from '../src/engine/units';
-import { computeMetrics } from '../src/engine/analyze';
+import { computeMetrics, computeMultiStopStages } from '../src/engine/analyze';
+import { buildHtmlReport, buildPlanFile } from '../src/engine/report';
 import { recommendFleet } from '../src/engine/fleet';
 import { renderIso, rowColors } from '../src/engine/viz';
 import type { CargoRow, EquipmentProfile, Placement, Scenario, Unit } from '../src/engine/types';
@@ -285,5 +286,59 @@ describe('performance', () => {
     expect(fleet.allocations.length).toBeGreaterThan(0);
     expect(fleet.totalUnits).toBe(60);
     expect(fleet.summary).toContain('Recommended Fleet:');
+  });
+
+  it('imports 2D table array directly (underlying engine for Excel worksheets)', () => {
+    const table = [
+      ['sku', 'pcs', 'len', 'wid', 'hgt', 'uom', 'wt', 'mass_unit', 'drop'],
+      ['Box A', '5', '1200', '800', '1000', 'mm', '450', 'kg', '1'],
+      ['Box B', '10', '600', '400', '500', 'mm', '25', 'kg', '2'],
+    ];
+    const r = importCargoTable(table);
+    expect(r.issues.filter((i) => i.severity === 'error')).toHaveLength(0);
+    expect(r.rows).toHaveLength(2);
+    expect(r.rows[0].label).toBe('Box A');
+    expect(r.rows[0].qty).toBe(5);
+    expect(r.rows[0].stop).toBe(1);
+    expect(r.rows[1].stop).toBe(2);
+  });
+
+  it('computes progressive multi-stop unload stages and detects axle shifts', () => {
+    const eqn = normalizeEquipment(eq('trailer53'))!;
+    const u1: Unit = { id: 'u1', rowUid: 'r1', label: 'Drop 1 (Rear)', dims: [1200, 1000, 1000], weightKg: 8000, rotation: 'upright', stackable: true, stop: 1 };
+    const u2: Unit = { id: 'u2', rowUid: 'r2', label: 'Drop 2 (Front)', dims: [1200, 1000, 1000], weightKg: 8000, rotation: 'upright', stackable: true, stop: 2 };
+    const p1: Placement = { unitId: 'u1', rowUid: 'r1', label: 'Drop 1', x: 12000, y: 0, z: 0, dx: 1200, dy: 1000, dz: 1000, order: 2, stop: 1 };
+    const p2: Placement = { unitId: 'u2', rowUid: 'r2', label: 'Drop 2', x: 1000, y: 0, z: 0, dx: 1200, dy: 1000, dz: 1000, order: 1, stop: 2 };
+
+    const stages = computeMultiStopStages([u1, u2], eqn, [p1, p2]);
+    expect(stages).toHaveLength(3);
+    expect(stages[0].remainingUnits).toBe(2);
+    expect(stages[0].remainingWeightKg).toBe(16000);
+    expect(stages[1].remainingUnits).toBe(1);
+    expect(stages[1].remainingWeightKg).toBe(8000);
+    expect(stages[1].cogX).toBeCloseTo(1600, 0);
+    expect(stages[1].warning).toContain('Forward weight bias');
+  });
+
+  it('generates HTML report including 3D CoG and Axle distribution table', () => {
+    const rows = [row({ label: 'Cargo 1', qty: 10, length: 1200, width: 800, height: 1000, weight: 500 })];
+    const sc = scn(rows, ['trailer53']);
+    const a = analyzeScenario(sc);
+    const res = a.results[0];
+    const planFile = buildPlanFile({
+      scenario: sc,
+      result: res,
+      placements: res.arrangements[0].placements,
+      arrangementName: res.arrangements[0].name,
+      edited: false,
+      inputHash: 'test-hash',
+    });
+    const html = buildHtmlReport(planFile);
+    expect(html).toContain('Load plan');
+    expect(html).toContain('Axle Load Distribution &amp; Balance');
+    expect(html).toContain('Steer Axle');
+    expect(html).toContain('Drive Tandem');
+    expect(html).toContain('Trailer Tandem');
+    expect(html).toContain('OPTIMAL CoG TARGET');
   });
 });
