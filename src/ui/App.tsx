@@ -174,6 +174,10 @@ export function App() {
     <div className="shell">
       <header className="topbar">
         <a className="brand" href="#/" aria-label="Cargo Fit home"><span className="mark" aria-hidden="true" />Cargo Fit<span className="tag">Product 01 · working title</span></a>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
+          <a href="http://localhost:5174/" target="_blank" rel="noreferrer" className="btn sm ghost" title="Open Product 02: Freight Pricing & Telemetry HUD">💰 Pricing ↗</a>
+          <a href="http://localhost:5175/" target="_blank" rel="noreferrer" className="btn sm ghost" title="Open Product 03: HOS & Corridor Legality Planner">⏱️ HOS ↗</a>
+        </div>
         <input className="name" aria-label="Scenario name" value={scenario.name} disabled={!!readOnly}
           onChange={(e) => setScenarioSafe((s) => ({ ...s, name: e.target.value }))} />
         <div className="chips" aria-live="polite">
