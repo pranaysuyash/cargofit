@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { cargoToCsv, importCargoCsv, importCargoTable, type ImportIssue } from '../engine/csv';
 import { parseXlsx, type XlsxWorkbook } from '../engine/xlsx';
+import { parseEdi204 } from '../engine/edi204';
 import { blankRow } from '../engine/scenario';
 import { LENGTH_UNITS, MASS_UNITS, fmtNum, toKg, toMm } from '../engine/units';
 import { renderCargo3D } from '../engine/viz';
@@ -13,6 +14,8 @@ export function CargoStep(p: AppApi) {
   const { scenario, setScenario, issues, readOnly } = p;
   const [imp, setImp] = useState<{ name: string; issues: ImportIssue[]; count: number } | null>(null);
   const [sheetPicker, setSheetPicker] = useState<{ fileName: string; workbook: XlsxWorkbook } | null>(null);
+  const [ediModalOpen, setEdiModalOpen] = useState(false);
+  const [ediRawText, setEdiRawText] = useState('');
   const [drag, setDrag] = useState(false);
   const [inspectUid, setInspectUid] = useState<string | null>(null);
   const [orientIdx, setOrientIdx] = useState(0);
@@ -53,6 +56,22 @@ export function CargoStep(p: AppApi) {
     p.notify(bad ? 'warn' : 'ok', `Imported ${r.rows.length} row(s) from "${sheetName}" in ${fileName}${bad ? ` — ${bad} cell(s) need repair below` : ''}.`);
   };
 
+  const importEdiText = (name: string, text: string, mode: 'replace' | 'append') => {
+    const res = parseEdi204(text);
+    setImp({ name, issues: res.issues, count: res.rows.length });
+    if (res.rows.length === 0) {
+      p.notify('err', `No cargo rows found in EDI 204 tender (${name}): ${res.issues[0]?.message ?? 'no lading segments'}`);
+      return;
+    }
+    setScenario((s) => ({
+      ...s,
+      name: res.bolNumber ? `EDI Tender ${res.bolNumber}` : s.name,
+      rows: mode === 'replace' ? res.rows : [...s.rows, ...res.rows],
+    }));
+    const bad = res.issues.filter((i) => i.severity === 'error' || i.severity === 'warning').length;
+    p.notify(bad ? 'warn' : 'ok', `Imported ${res.rows.length} row(s) from EDI 204 tender ${res.bolNumber ? `(${res.bolNumber})` : ''} — ${res.stopsCount} stop(s)${bad ? `, ${bad} warning(s)` : ''}.`);
+  };
+
   const onFile = async (f: File | undefined | null) => {
     if (!f) return;
     if (/\.xlsx?$/i.test(f.name)) {
@@ -73,7 +92,12 @@ export function CargoStep(p: AppApi) {
       }
       return;
     }
-    importText(f.name, await f.text(), scenario.rows.length ? 'append' : 'replace');
+    const txt = await f.text();
+    if (/\.(edi|x12)$/i.test(f.name) || txt.includes('ST*204') || txt.startsWith('ISA*')) {
+      importEdiText(f.name, txt, scenario.rows.length ? 'append' : 'replace');
+      return;
+    }
+    importText(f.name, txt, scenario.rows.length ? 'append' : 'replace');
   };
 
   const totalUnits = scenario.rows.reduce((s, r) => s + (r.qty && r.qty > 0 ? r.qty : 0), 0);
@@ -92,7 +116,8 @@ export function CargoStep(p: AppApi) {
           <p className="sub">One row per kind of unit. Dimensions and weight are <b>per unit</b>. Anything you leave empty stays unknown — it is never guessed.</p></div>
         <div className="actions">
           <button className="btn" disabled={disabled} onClick={() => fileRef.current?.click()}>Import CSV / Excel…</button>
-          <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
+          <button className="btn" disabled={disabled} onClick={() => setEdiModalOpen(true)} title="Import ANSI X12 EDI 204 Motor Carrier Load Tender">Import EDI 204…</button>
+          <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.edi,.x12,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
           <button className="btn" onClick={() => { const ok = download(`${scenario.name || 'cargo'}.csv`.replace(/\s+/g, '-'), cargoToCsv(scenario.rows), 'text/csv'); p.notify(ok ? 'ok' : 'err', ok ? 'Manifest CSV downloaded.' : 'Download failed in this browser.'); }}>Download CSV</button>
           <button className="btn" disabled={disabled} onClick={() => setScenario((s) => ({ ...s, rows: [...s.rows, blankRow()] }))}>+ Add row</button>
         </div>
@@ -130,6 +155,70 @@ export function CargoStep(p: AppApi) {
                 <span className="arr-stat mono">{s.data.length} row(s) detected</span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {ediModalOpen && (
+        <div className="panel sheet-picker-panel" role="dialog" aria-modal="true" aria-labelledby="h-edi-tender">
+          <div className="panel-h">
+            <b id="h-edi-tender">ANSI X12 EDI 204 Motor Carrier Load Tender Ingest</b>
+            <button className="btn sm ghost" onClick={() => setEdiModalOpen(false)}>Close</button>
+          </div>
+          <p className="muted small">
+            Paste an EDI 204 shipment tender (with segments ST, B2, S5, L5, AT8, MEA, OID) or click “Load Sample Tender”.
+            Physical dimensions and weights are parsed per unit; undeclared values remain unmodeled per the zero-invention policy.
+          </p>
+          <textarea
+            className="txt mono"
+            style={{ width: '100%', height: 180, fontSize: '0.8rem', padding: 8, fontFamily: 'monospace' }}
+            placeholder="ST*204*0001~&#10;B2**SWFT*BOL-889912**PP~&#10;S5*1*LD*24000*L~&#10;L5*1*Electronics Pallets~&#10;AT8*G*L*12000*6*PLT~&#10;MEA*PD*LN*48*IN~&#10;MEA*PD*WD*40*IN~&#10;MEA*PD*HT*60*IN~&#10;SE*8*0001~"
+            value={ediRawText}
+            onChange={(e) => setEdiRawText(e.target.value)}
+          />
+          <div className="actions" style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+            <button
+              className="btn primary"
+              disabled={!ediRawText.trim()}
+              onClick={() => {
+                importEdiText('pasted-tender.edi', ediRawText, scenario.rows.length ? 'append' : 'replace');
+                setEdiModalOpen(false);
+              }}
+            >
+              Parse & Import EDI 204
+            </button>
+            <button
+              className="btn"
+              onClick={() => {
+                const sampleEdi = `ISA*00*          *00*          *ZZ*ACMESHP        *ZZ*SWFT           *261020*1200*U*00401*000000001*0*P*>~
+GS*SM*ACMESHP*SWFT*20261020*1200*1*X*004010~
+ST*204*0001~
+B2**SWFT*BOL-889912**PP~
+B2A*00~
+N1*SH*ACME Logistics Dallas Hub~
+N3*4400 Interstate Blvd~
+N4*Dallas*TX*75201*US~
+N1*CN*Apex Distribution Center Chicago~
+N3*990 Logistics Way~
+N4*Chicago*IL*60601*US~
+S5*1*LD*24000*L*1200*E*10*PLT~
+L5*1*Consumer Electronics Pallets~
+AT8*G*L*12000*6*PLT~
+MEA*PD*LN*48*IN~
+MEA*PD*WD*40*IN~
+MEA*PD*HT*60*IN~
+S5*2*UL*12000*L*600*E*5*PLT~
+L5*2*Industrial Hardware 48x40x48 in~
+AT8*G*L*8000*4*PLT~
+SE*18*0001~
+GE*1*1~
+IEA*1*000000001~`;
+                setEdiRawText(sampleEdi);
+              }}
+            >
+              Load Sample 2-Stop Tender
+            </button>
+            <button className="btn ghost" onClick={() => setEdiRawText('')}>Clear</button>
           </div>
         </div>
       )}

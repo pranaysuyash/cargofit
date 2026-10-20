@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { buildHtmlReport, buildInteractiveHtmlReport, buildWorkOrderHtml, buildPlanFile, LIMITATIONS, placementsCsv } from '../engine/report';
 import { exportToGltf } from '../engine/gltf';
+import { generateEdi214 } from '../engine/edi214';
+import { buildFreightQuoteUrl } from '../engine/quoteBridge';
 import { expandUnits, normalizeEquipment } from '../engine/normalize';
 import { cargoToCsv } from '../engine/csv';
 import { diffRows, diffResults, summarize } from '../engine/scenario';
@@ -26,7 +28,7 @@ export function VersionsStep(p: AppApi) {
     const placements = (key && p.edits[key]) || result.arrangements[arrIdx].placements;
     return buildPlanFile({ scenario, result, placements, arrangementName: result.arrangements[arrIdx].name, edited, inputHash: p.hash });
   };
-  const exportAs = (kind: 'json' | 'csv' | 'html' | 'open' | 'interactive' | 'workorder' | 'gltf') => {
+  const exportAs = (kind: 'json' | 'csv' | 'html' | 'open' | 'interactive' | 'workorder' | 'gltf' | 'edi214') => {
     if (!ready) { p.notify('warn', 'Plans are stale or still computing. Wait until “Plans up to date”, then export.'); return; }
     const plan = makePlan();
     if (!plan) { p.notify('err', 'No computed plan to export.'); return; }
@@ -36,6 +38,10 @@ export function VersionsStep(p: AppApi) {
     if (kind === 'csv') ok = download(`${base}.placements.csv`, placementsCsv(plan), 'text/csv');
     if (kind === 'html') ok = download(`${base}.report.html`, buildHtmlReport(plan), 'text/html');
     if (kind === 'interactive') ok = download(`${base}.interactive-3d.html`, buildInteractiveHtmlReport(plan), 'text/html');
+    if (kind === 'edi214') {
+      const ediText = generateEdi214(plan);
+      ok = download(`${base}.status.214.edi`, ediText, 'application/edi-x12');
+    }
     if (kind === 'gltf') {
       const eqProfile = scenario.equipment.find((e) => e.id === result!.equipmentId);
       const eq = eqProfile ? normalizeEquipment(eqProfile) : null;
@@ -98,6 +104,8 @@ export function VersionsStep(p: AppApi) {
                 <button className="btn" disabled={!ready} onClick={() => exportAs('gltf')} title="Export Khronos glTF 2.0 3D CAD model for Blender, Three.js, or Unity">🧊 3D CAD (.gltf)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('json')}>Plan file (JSON)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('csv')}>Placements (CSV)</button>
+                <button className="btn" disabled={!ready} onClick={() => exportAs('edi214')} title="Export ANSI X12 EDI 214 Carrier Shipment Status Message with Seal Verification">📡 EDI 214 Status</button>
+                <button className="btn" style={{ background: '#0f172a', color: '#38bdf8', borderColor: '#334155', fontWeight: 'bold' }} disabled={!ready} onClick={() => { const plan = makePlan(); if (plan) window.open(buildFreightQuoteUrl(plan), '_blank'); }} title="Open Product 02 Freight Pricing Engine with this load's equipment, weight, and stops">💰 Quote in Product 02 ↗</button>
                 <button className="btn" onClick={() => { const ok = download(`${slug(scenario.name)}.cargo.csv`, cargoToCsv(scenario.rows), 'text/csv'); p.notify(ok ? 'ok' : 'err', ok ? 'Manifest CSV downloaded.' : 'Download failed.'); }}>Manifest (CSV)</button>
               </div>
               {!ready && <p className="note warn">Exports unlock when plans are up to date.</p>}

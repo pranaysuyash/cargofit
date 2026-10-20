@@ -29,7 +29,6 @@ yarn-error.log*
 # Cloudflare / Wrangler local cache
 .wrangler/
 
-# Generated doctrine review artifacts
-docs/reviews/motto_review.md
+# Test output
 test-results/
 playwright-report/
