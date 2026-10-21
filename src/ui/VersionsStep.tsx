@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from 'react';
 import { buildHtmlReport, buildInteractiveHtmlReport, buildWorkOrderHtml, buildPlanFile, LIMITATIONS, placementsCsv } from '../engine/report';
 import { exportToGltf } from '../engine/gltf';
 import { generateEdi214 } from '../engine/edi214';
+import { buildVicsBolHtml } from '../engine/vicsBol';
+import { SignaturePad } from './SignaturePad';
 import { buildFreightQuoteUrl } from '../engine/quoteBridge';
 import { expandUnits, normalizeEquipment } from '../engine/normalize';
 import { cargoToCsv } from '../engine/csv';
@@ -14,6 +16,9 @@ export function VersionsStep(p: AppApi) {
   const { scenario, results, saved, readOnly } = p;
   const [note, setNote] = useState('');
   const [cmp, setCmp] = useState<{ id: string; rev: number } | null>(null);
+  const [signatureModal, setSignatureModal] = useState<'shipper' | 'driver' | null>(null);
+  const [shipperSig, setShipperSig] = useState<string | null>(null);
+  const [driverSig, setDriverSig] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const plannable = results.filter((r) => r.arrangements.length > 0);
@@ -28,7 +33,7 @@ export function VersionsStep(p: AppApi) {
     const placements = (key && p.edits[key]) || result.arrangements[arrIdx].placements;
     return buildPlanFile({ scenario, result, placements, arrangementName: result.arrangements[arrIdx].name, edited, inputHash: p.hash });
   };
-  const exportAs = (kind: 'json' | 'csv' | 'html' | 'open' | 'interactive' | 'workorder' | 'gltf' | 'edi214') => {
+  const exportAs = (kind: 'json' | 'csv' | 'html' | 'open' | 'interactive' | 'workorder' | 'gltf' | 'edi214' | 'vicsbol') => {
     if (!ready) { p.notify('warn', 'Plans are stale or still computing. Wait until “Plans up to date”, then export.'); return; }
     const plan = makePlan();
     if (!plan) { p.notify('err', 'No computed plan to export.'); return; }
@@ -41,6 +46,17 @@ export function VersionsStep(p: AppApi) {
     if (kind === 'edi214') {
       const ediText = generateEdi214(plan);
       ok = download(`${base}.status.214.edi`, ediText, 'application/edi-x12');
+    }
+    if (kind === 'vicsbol') {
+      const bolHtml = buildVicsBolHtml(plan, {
+        shipperSignatureDataUrl: shipperSig || undefined,
+        driverSignatureDataUrl: driverSig || undefined,
+      });
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(bolHtml); w.document.close(); ok = true; }
+      else { ok = download(`${base}.vics-bol.html`, bolHtml, 'text/html'); }
+      if (ok) p.notify('ok', 'Standard VICS Bill of Lading generated for print / PDF export.');
+      return;
     }
     if (kind === 'gltf') {
       const eqProfile = scenario.equipment.find((e) => e.id === result!.equipmentId);
@@ -99,12 +115,15 @@ export function VersionsStep(p: AppApi) {
               <div className="exports">
                 <button className="btn primary" disabled={!ready} onClick={() => exportAs('interactive')} title="Single-file offline HTML with embedded 3D viewer, rotation, and loading player">★ Interactive 3D (.html)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('workorder')} title="Physical loading checklist and driver bill-of-lading print sheet">📋 Loading Work Order</button>
+                <button className="btn" disabled={!ready} onClick={() => exportAs('vicsbol')} title="Standard Voluntary Interindustry Commerce Solutions (VICS) Bill of Lading with Barcode and Signatures">📜 VICS Bill of Lading</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('html')}>Report (HTML, printable)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('open')}>Open report to print/PDF</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('gltf')} title="Export Khronos glTF 2.0 3D CAD model for Blender, Three.js, or Unity">🧊 3D CAD (.gltf)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('json')}>Plan file (JSON)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('csv')}>Placements (CSV)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('edi214')} title="Export ANSI X12 EDI 214 Carrier Shipment Status Message with Seal Verification">📡 EDI 214 Status</button>
+                <button className="btn sm" disabled={!ready} onClick={() => setSignatureModal('driver')} title="Sign digitally on glass as driver">✍️ {driverSig ? '✓ Driver Signed' : 'Driver Sign on Glass'}</button>
+                <button className="btn sm" disabled={!ready} onClick={() => setSignatureModal('shipper')} title="Sign digitally on glass as shipper">✍️ {shipperSig ? '✓ Shipper Signed' : 'Shipper Sign'}</button>
                 <button className="btn" style={{ background: '#0f172a', color: '#38bdf8', borderColor: '#334155', fontWeight: 'bold' }} disabled={!ready} onClick={() => { const plan = makePlan(); if (plan) window.open(buildFreightQuoteUrl(plan), '_blank'); }} title="Open Product 02 Freight Pricing Engine with this load's equipment, weight, and stops">💰 Quote in Product 02 ↗</button>
                 <button className="btn" onClick={() => { const ok = download(`${slug(scenario.name)}.cargo.csv`, cargoToCsv(scenario.rows), 'text/csv'); p.notify(ok ? 'ok' : 'err', ok ? 'Manifest CSV downloaded.' : 'Download failed.'); }}>Manifest (CSV)</button>
               </div>
@@ -154,6 +173,19 @@ export function VersionsStep(p: AppApi) {
         <div className="panel-h"><b>Limitations that travel with every export</b></div>
         <ul className="lim">{LIMITATIONS.map((l) => <li key={l}>{l}</li>)}</ul>
       </div>
+
+      {signatureModal && (
+        <SignaturePad
+          title={signatureModal === 'driver' ? 'Driver Acceptance Signature (Sign on Glass)' : 'Shipper Release Signature (Sign on Glass)'}
+          onSave={(dataUrl) => {
+            if (signatureModal === 'driver') setDriverSig(dataUrl);
+            else setShipperSig(dataUrl);
+            setSignatureModal(null);
+            p.notify('ok', `${signatureModal === 'driver' ? 'Driver' : 'Shipper'} digital signature captured and embedded into VICS BOL.`);
+          }}
+          onCancel={() => setSignatureModal(null)}
+        />
+      )}
     </section>
   );
 }

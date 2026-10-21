@@ -67,8 +67,19 @@ export function EquipmentStep(p: AppApi) {
                 <div><dt>Volume</dt><dd className="mono">{vol ? `${fmtNum(vol, 2)} m³` : '—'}</dd></div>
                 <div><dt>Payload (kg / lb)</dt><dd className="mono">{e.payload ? `${fmtNum(toKg(e.payload, e.massUnit), 0)} / ${fmtNum(toKg(e.payload, e.massUnit) / 0.45359237, 0)}` : 'not declared'}</dd></div>
               </dl>
-              <p className="src"><b>Source:</b>
-                <input className="txt src-in" aria-label={`${e.name} source`} disabled={disabled} value={e.source} onChange={(ev) => patch(e.id, { source: ev.target.value })} /></p>
+              <p className="src" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span><b>Source:</b> <input className="txt src-in" aria-label={`${e.name} source`} disabled={disabled} value={e.source} onChange={(ev) => patch(e.id, { source: ev.target.value })} /></span>
+                <a
+                  href={`http://localhost:5176/?vehicle=${encodeURIComponent(e.name)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn sm"
+                  style={{ textDecoration: 'none', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                  title="Inspect 3D digital twin, isometric projection, and CAD blueprints in Product 04 Asset Studio"
+                >
+                  📐 3D Asset Studio (P04) ↗
+                </a>
+              </p>
               {!!(eqIssue(e.id, 'payload') || eqIssue(e.id, 'door')) && e.included && (
                 <p className="note warn">{[eqIssue(e.id, 'payload'), eqIssue(e.id, 'door')].filter(Boolean).map((i) => i!.message).join(' ')}</p>
               )}

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { expandUnits, normalizeEquipment, validateEquipment, validateRows } from '../engine/normalize';
-import { scenarioHash, summarize, type ResultSummary } from '../engine/scenario';
+import { scenarioHash, summarize, DEFAULT_SETTINGS, type ResultSummary } from '../engine/scenario';
 import { loadAll, saveRevision, type SavedScenario } from '../engine/storage';
-import type { EquipmentResult, Placement, Scenario } from '../engine/types';
+import type { EquipmentProfile, EquipmentResult, Placement, Scenario } from '../engine/types';
 import { readPlanFile, type PlanFile } from '../engine/report';
 import { computeMetrics, buildChecks } from '../engine/analyze';
 import { Landing } from './Landing';
@@ -11,7 +11,7 @@ import { EquipmentStep } from './EquipmentStep';
 import { DecisionStep } from './DecisionStep';
 import { PlanStep } from './PlanStep';
 import { VersionsStep } from './VersionsStep';
-import { blankScenario, sampleScenario } from './samples';
+import { blankScenario, sampleScenario, equipmentPresets } from './samples';
 import { useSolver } from './useSolver';
 import { getFreightPricingBaseUrl } from '../engine/quoteBridge';
 
@@ -45,7 +45,67 @@ export function App() {
   }, []);
   const go = useCallback((step: StepId) => { window.location.hash = `#/app/${step}`; }, []);
 
-  const [scenario, setScenario] = useState<Scenario>(() => sampleScenario('mixed'));
+  const [scenario, setScenario] = useState<Scenario>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('source') === 'asset_studio_p04') {
+        const eqName = p.get('eqName') || 'Asset Studio Vehicle';
+        const eqL = Number(p.get('eqL')) || 16000;
+        const eqW = Number(p.get('eqW')) || 2540;
+        const eqH = Number(p.get('eqH')) || 2794;
+        const eqPayloadKg = Number(p.get('eqPayloadKg')) || 20400;
+
+        const pkgName = p.get('pkgName') || 'Imported Cargo Unit';
+        const pkgQty = Number(p.get('pkgQty')) || 24;
+        const pkgL = Number(p.get('pkgL')) || 1219;
+        const pkgW = Number(p.get('pkgW')) || 1016;
+        const pkgH = Number(p.get('pkgH')) || 1372;
+        const pkgKg = Number(p.get('pkgKg')) || 800;
+
+        const defaultEq = equipmentPresets();
+        const customEq: EquipmentProfile = {
+          id: 'p04-eq-1',
+          name: eqName,
+          length: eqL,
+          width: eqW,
+          height: eqH,
+          unit: 'mm',
+          doorWidth: eqW,
+          doorHeight: eqH,
+          payload: eqPayloadKg,
+          massUnit: 'kg',
+          cost: 1850,
+          currency: 'USD',
+          costSource: 'user',
+          source: 'Product 04 Asset Studio',
+          included: true,
+        };
+
+        return {
+          name: `${eqName} Load Optimization`,
+          rows: [
+            {
+              uid: 'p04-row-1',
+              label: pkgName,
+              qty: pkgQty,
+              length: pkgL,
+              width: pkgW,
+              height: pkgH,
+              dimUnit: 'mm',
+              weight: pkgKg,
+              weightUnit: 'kg',
+              rotation: 'upright',
+              stackable: true,
+              stop: 1,
+            },
+          ],
+          equipment: [customEq, ...defaultEq.map((e) => ({ ...e, included: false }))],
+          settings: { ...DEFAULT_SETTINGS },
+        };
+      }
+    }
+    return sampleScenario('mixed');
+  });
   const [readOnly, setReadOnly] = useState<PlanFile | null>(null);
   const solver = useSolver();
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -178,6 +238,7 @@ export function App() {
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
           <a href={getFreightPricingBaseUrl()} target="_blank" rel="noreferrer" className="btn sm ghost" title="Open Product 02: Freight Pricing & Telemetry HUD">💰 Pricing ↗</a>
           <a href={typeof window !== 'undefined' && window.location.hostname.includes('pages.dev') ? 'https://hosdispatch.pages.dev' : 'http://localhost:5175/'} target="_blank" rel="noreferrer" className="btn sm ghost" title="Open Product 03: HOS & Corridor Legality Planner">⏱️ HOS ↗</a>
+          <a href="http://localhost:5176/" target="_blank" rel="noreferrer" className="btn sm ghost" style={{ color: '#38bdf8' }} title="Open Product 04: Fleet & Cargo Asset Studio">🚛 Studio ↗</a>
         </div>
         <input className="name" aria-label="Scenario name" value={scenario.name} disabled={!!readOnly}
           onChange={(e) => setScenarioSafe((s) => ({ ...s, name: e.target.value }))} />
