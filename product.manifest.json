@@ -1,0 +1,26 @@
+{
+  "$schema": "https://trucking.platform.io/schemas/subproduct-manifest-v1.json",
+  "id": "product-01-cargo-fit",
+  "name": "Cargo Fit & 3D Load Optimization",
+  "shortName": "Cargo Fit",
+  "code": "P01",
+  "version": "1.0.0",
+  "port": 5173,
+  "icon": "📦",
+  "description": "3D heuristic cargo packing, Federal Bridge Formula axle distribution, and securement compliance",
+  "category": "optimization",
+  "entitlementKey": "cargo_fit",
+  "routes": {
+    "dev": "http://localhost:5173",
+    "cloud": "https://cargofit.pages.dev"
+  },
+  "bridges": {
+    "consumes": [
+      { "from": "product-04-asset-studio", "protocol": "OLAS-v1", "action": "load_equipment" },
+      { "from": "product-05-fleet-telematics", "protocol": "TELEMATICS-v1", "action": "verify_axle_load" }
+    ],
+    "produces": [
+      { "to": "product-02-freight-pricing", "protocol": "OLLP-v1", "action": "quote_load" }
+    ]
+  }
+}

@@ -94,6 +94,37 @@ export function PlanStep(p: AppApi) {
     }
   }, [sel]);
 
+  const selP = working.find((w) => w.unitId === sel) ?? null;
+  const selU = selP ? unitMap.get(selP.unitId) : undefined;
+
+  const activeStage = result?.multiStopStages && result.multiStopStages[activeStageIdx] ? result.multiStopStages[activeStageIdx] : null;
+  const stagePlacements = useMemo(() => {
+    if (!activeStage || activeStage.stage === 0) return working;
+    return working.filter((w) => {
+      const u = unitMap.get(w.unitId);
+      const st = u?.stop ?? w.stop ?? null;
+      return st === null || st > activeStage.stop;
+    });
+  }, [activeStage, working, unitMap]);
+
+  const activeStepUnit = useMemo(() => {
+    if (selP) return selP;
+    const targetOrder = upTo ?? working.length;
+    return working.find((w) => w.order === targetOrder) ?? working[0] ?? null;
+  }, [selP, upTo, working]);
+  const activeStepUnitInfo = activeStepUnit ? unitMap.get(activeStepUnit.unitId) : undefined;
+
+  const filteredPlacements = useMemo(() => {
+    let list = working.slice().sort((a, b) => a.order - b.order);
+    if (filterRowUid) list = list.filter((w) => w.rowUid === filterRowUid);
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      list = list.filter((w) => w.unitId.toLowerCase().includes(q) || w.label.toLowerCase().includes(q));
+    }
+    return list;
+  }, [working, filterRowUid, query]);
+
+
   if (!result || !eq || !profile || !arr || !metrics) {
     return (
       <section className="step"><div className="step-head"><div><p className="eyebrow">Step 04</p><h1>Plan</h1></div></div>
@@ -105,8 +136,6 @@ export function PlanStep(p: AppApi) {
 
   const setWorking = (next: Placement[]) => p.setEdits({ ...p.edits, [key]: next });
   const resetEdits = () => { const n = { ...p.edits }; delete n[key]; p.setEdits(n); p.notify('ok', 'Restored the solver’s arrangement.'); };
-  const selP = working.find((w) => w.unitId === sel) ?? null;
-  const selU = selP ? unitMap.get(selP.unitId) : undefined;
   const mutate = (id: string, patch: Partial<Placement>) => {
     if (readOnly) { p.notify('warn', 'Read-only plan: editing is disabled.'); return; }
     setWorking(working.map((w) => (w.unitId === id ? { ...w, ...patch } : w)));
@@ -193,23 +222,7 @@ export function PlanStep(p: AppApi) {
     else if (k === 'Escape') setSel(null);
   };
 
-  const activeStage = result?.multiStopStages && result.multiStopStages[activeStageIdx] ? result.multiStopStages[activeStageIdx] : null;
-  const stagePlacements = useMemo(() => {
-    if (!activeStage || activeStage.stage === 0) return working;
-    return working.filter((w) => {
-      const u = unitMap.get(w.unitId);
-      const st = u?.stop ?? w.stop ?? null;
-      return st === null || st > activeStage.stop;
-    });
-  }, [activeStage, working, unitMap]);
-
   const currentStepNum = upTo ?? working.length;
-  const activeStepUnit = useMemo(() => {
-    if (selP) return selP;
-    const targetOrder = upTo ?? working.length;
-    return working.find((w) => w.order === targetOrder) ?? working[0] ?? null;
-  }, [selP, upTo, working]);
-  const activeStepUnitInfo = activeStepUnit ? unitMap.get(activeStepUnit.unitId) : undefined;
 
   const ctx = {
     eq,
@@ -239,15 +252,6 @@ export function PlanStep(p: AppApi) {
     ? (violations.length === 0 && unplaced.length === 0 ? 'Edited plan: the validator found no violations of the modeled constraints.' : `Edited plan: ${violations.length} violation(s), ${unplaced.length} unit(s) unplaced.`)
     : null;
 
-  const filteredPlacements = useMemo(() => {
-    let list = working.slice().sort((a, b) => a.order - b.order);
-    if (filterRowUid) list = list.filter((w) => w.rowUid === filterRowUid);
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      list = list.filter((w) => w.unitId.toLowerCase().includes(q) || w.label.toLowerCase().includes(q));
-    }
-    return list;
-  }, [working, filterRowUid, query]);
 
   return (
     <section className="step plan" aria-labelledby="h-plan">
