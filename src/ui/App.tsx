@@ -14,6 +14,7 @@ import { VersionsStep } from './VersionsStep';
 import { blankScenario, sampleScenario, equipmentPresets } from './samples';
 import { useSolver } from './useSolver';
 import { getFreightPricingBaseUrl } from '../engine/quoteBridge';
+import { SuiteDock } from './SuiteDock';
 
 export type StepId = 'cargo' | 'equipment' | 'decision' | 'plan' | 'versions';
 export const STEPS: { id: StepId; n: string; label: string; hint: string }[] = [
@@ -233,6 +234,7 @@ export function App() {
 
   return (
     <div className="shell">
+      <SuiteDock currentProductId="product-01-cargo-fit" />
       <header className="topbar">
         <a className="brand" href="#/" aria-label="Cargo Fit home"><span className="mark" aria-hidden="true" />Cargo Fit<span className="tag">Product 01 · working title</span></a>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>

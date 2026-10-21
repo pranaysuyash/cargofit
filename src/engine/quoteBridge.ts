@@ -15,7 +15,8 @@ export function getFreightPricingBaseUrl(): string {
 export function buildFreightQuoteUrl(plan: PlanFile, baseUrl?: string): string {
   const targetBase = baseUrl || getFreightPricingBaseUrl();
   const m = plan.metrics;
-  const eqName = (plan.scenario.equipment.find((e) => e.id === plan.equipmentId)?.name || '').toLowerCase();
+  const rawEquipment = plan.scenario.equipment.find((e) => e.id === plan.equipmentId);
+  const eqName = (rawEquipment?.name || '').toLowerCase();
 
   let equipCategory = 'dry_van';
   if (eqName.includes('reefer') || eqName.includes('refrigerat')) {
@@ -45,6 +46,7 @@ export function buildFreightQuoteUrl(plan: PlanFile, baseUrl?: string): string {
     source: 'cargofit',
     scenario: plan.scenario.name,
     equipment: equipCategory,
+    equipmentName: rawEquipment?.name || equipCategory,
     loadedKg: String(Math.round(m.loadedWeightKg)),
     loadedLbs: String(weightLbs),
     placedUnits: String(m.placedUnits),
