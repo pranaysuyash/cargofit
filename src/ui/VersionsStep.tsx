@@ -2,7 +2,8 @@ import { useMemo, useRef, useState } from 'react';
 import { buildHtmlReport, buildInteractiveHtmlReport, buildWorkOrderHtml, buildPlanFile, LIMITATIONS, placementsCsv } from '../engine/report';
 import { exportToGltf } from '../engine/gltf';
 import { generateEdi214 } from '../engine/edi214';
-import { buildVicsBolHtml } from '../engine/vicsBol';
+import { assessBolReadiness, buildVicsBolHtml } from '../engine/vicsBol';
+import type { BolLineDeclaration } from '../engine/vicsBol';
 import { SignaturePad } from './SignaturePad';
 import { buildFreightQuoteUrl } from '../engine/quoteBridge';
 import { expandUnits, normalizeEquipment } from '../engine/normalize';
@@ -19,6 +20,9 @@ export function VersionsStep(p: AppApi) {
   const [signatureModal, setSignatureModal] = useState<'shipper' | 'driver' | null>(null);
   const [shipperSig, setShipperSig] = useState<string | null>(null);
   const [driverSig, setDriverSig] = useState<string | null>(null);
+  const [bol, setBol] = useState<Partial<Record<'carrierName' | 'scac' | 'shipperName' | 'shipperAddress' | 'shipperCityStateZip' | 'consigneeName' | 'consigneeAddress' | 'consigneeCityStateZip' | 'trailerNumber' | 'sealNumber' | 'proNumber' | 'specialInstructions' | 'emergencyPhone', string>>>({});
+  const [bolLines, setBolLines] = useState<Record<string, BolLineDeclaration>>({});
+  const [bolApproved, setBolApproved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const plannable = results.filter((r) => r.arrangements.length > 0);
@@ -49,13 +53,16 @@ export function VersionsStep(p: AppApi) {
     }
     if (kind === 'vicsbol') {
       const bolHtml = buildVicsBolHtml(plan, {
+        ...bol,
+        lineDeclarations: bolLines,
+        humanApproved: bolApproved,
         shipperSignatureDataUrl: shipperSig || undefined,
         driverSignatureDataUrl: driverSig || undefined,
       });
       const w = window.open('', '_blank');
       if (w) { w.document.write(bolHtml); w.document.close(); ok = true; }
       else { ok = download(`${base}.vics-bol.html`, bolHtml, 'text/html'); }
-      if (ok) p.notify('ok', 'Standard VICS Bill of Lading generated for print / PDF export.');
+      if (ok) { const r = assessBolReadiness(plan, { ...bol, lineDeclarations: bolLines, humanApproved: bolApproved }); p.notify(r.isFinal ? 'ok' : 'warn', r.isFinal ? 'Bill of Lading generated for print / PDF export.' : `Draft Load Manifest generated (not a valid BOL): ${r.blockers.length} item(s) outstanding.`); }
       return;
     }
     if (kind === 'gltf') {
@@ -115,7 +122,7 @@ export function VersionsStep(p: AppApi) {
               <div className="exports">
                 <button className="btn primary" disabled={!ready} onClick={() => exportAs('interactive')} title="Single-file offline HTML with embedded 3D viewer, rotation, and loading player">★ Interactive 3D (.html)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('workorder')} title="Physical loading checklist and driver bill-of-lading print sheet">📋 Loading Work Order</button>
-                <button className="btn" disabled={!ready} onClick={() => exportAs('vicsbol')} title="Standard Voluntary Interindustry Commerce Solutions (VICS) Bill of Lading with Barcode and Signatures">📜 VICS Bill of Lading</button>
+                <button className="btn" disabled={!ready} onClick={() => exportAs('vicsbol')} title="VICS Bill of Lading when every field is declared and approved; otherwise a clearly marked Draft Load Manifest">📜 VICS BOL / Draft</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('html')}>Report (HTML, printable)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('open')}>Open report to print/PDF</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('gltf')} title="Export Khronos glTF 2.0 3D CAD model for Blender, Three.js, or Unity">🧊 3D CAD (.gltf)</button>
@@ -127,6 +134,23 @@ export function VersionsStep(p: AppApi) {
                 <button className="btn" style={{ background: '#0f172a', color: '#38bdf8', borderColor: '#334155', fontWeight: 'bold' }} disabled={!ready} onClick={() => { const plan = makePlan(); if (plan) window.open(buildFreightQuoteUrl(plan), '_blank'); }} title="Open Product 02 Freight Pricing Engine with this load's equipment, weight, and stops">💰 Quote in Product 02 ↗</button>
                 <button className="btn" onClick={() => { const ok = download(`${slug(scenario.name)}.cargo.csv`, cargoToCsv(scenario.rows), 'text/csv'); p.notify(ok ? 'ok' : 'err', ok ? 'Manifest CSV downloaded.' : 'Download failed.'); }}>Manifest (CSV)</button>
               </div>
+              <details className="bol-details">
+                <summary>Bill of Lading details (required to issue a final BOL; nothing is invented)</summary>
+                {(['carrierName', 'scac', 'proNumber', 'shipperName', 'shipperAddress', 'shipperCityStateZip', 'consigneeName', 'consigneeAddress', 'consigneeCityStateZip', 'trailerNumber', 'sealNumber', 'emergencyPhone', 'specialInstructions'] as const).map((k) => (
+                  <label key={k} className="small" style={{ display: 'block' }}>{k}
+                    <input value={bol[k] ?? ''} onChange={(ev) => setBol({ ...bol, [k]: ev.target.value })} style={{ width: '100%' }} />
+                  </label>
+                ))}
+                {Array.from(new Set(makePlan()?.placements.map((pl) => pl.label) ?? [])).map((label) => (
+                  <div key={label} className="small">
+                    <b>{label}</b>{' '}
+                    <input placeholder="NMFC" value={bolLines[label]?.nmfc ?? ''} onChange={(ev) => setBolLines({ ...bolLines, [label]: { ...bolLines[label], nmfc: ev.target.value } })} />{' '}
+                    <input placeholder="Class" value={bolLines[label]?.freightClass ?? ''} onChange={(ev) => setBolLines({ ...bolLines, [label]: { ...bolLines[label], freightClass: ev.target.value } })} />{' '}
+                    <input placeholder="Pkg type" value={bolLines[label]?.packageType ?? ''} onChange={(ev) => setBolLines({ ...bolLines, [label]: { ...bolLines[label], packageType: ev.target.value } })} />
+                  </div>
+                ))}
+                <label className="small"><input type="checkbox" checked={bolApproved} onChange={(ev) => setBolApproved(ev.target.checked)} /> I have verified these details and approve issuing this as a Bill of Lading</label>
+              </details>
               {!ready && <p className="note warn">Exports unlock when plans are up to date.</p>}
               <p className="muted small">Exports include inputs, item IDs, coordinates, equipment profile and sources, metrics, validator output, engine version, timestamp and the limitations below.</p>
             </>

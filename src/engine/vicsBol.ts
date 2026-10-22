@@ -1,22 +1,43 @@
 /**
- * Voluntary Interindustry Commerce Solutions (VICS) Standard Bill of Lading (BOL) Generator.
+ * Voluntary Interindustry Commerce Solutions (VICS) Bill of Lading — document builder.
  *
- * Generates an official, print-ready legal Bill of Lading document complying with
- * standard North American motor freight transportation regulations.
+ * Integrity rules (audit 2026-10-21):
+ *  - Commercial / legal fields (carrier, SCAC, parties, seal, trailer, NMFC, freight class)
+ *    are NEVER invented. Missing values render as UNDECLARED and force DRAFT status.
+ *  - Weights come from the manifest per-unit weights; unknown weights are shown as unknown,
+ *    never averaged or estimated.
+ *  - A document is only issued as a Bill of Lading when every required field is declared,
+ *    no weight is unknown, the geometric validation passed AND a human has explicitly
+ *    approved issuance (`humanApproved`). Otherwise it is a "Draft Load Manifest".
+ *  - Every interpolated value is HTML-escaped.
  */
 
 import type { PlanFile } from './report';
+import { expandUnits } from './normalize';
+import { code128Svg } from './code128';
+
+export const UNDECLARED = '[UNDECLARED — OPERATOR ENTRY REQUIRED]';
+
+export interface BolLineDeclaration {
+  nmfc?: string;
+  freightClass?: string;
+  packageType?: string;
+  hazmat?: boolean;
+}
 
 export interface VicsBolOptions {
   bolNumber?: string;
+  proNumber?: string;
   carrierName?: string;
   scac?: string;
   shipperName?: string;
   shipperAddress?: string;
   shipperCityStateZip?: string;
+  shipperId?: string;
   consigneeName?: string;
   consigneeAddress?: string;
   consigneeCityStateZip?: string;
+  consigneeId?: string;
   billToName?: string;
   billToAddress?: string;
   billToCityStateZip?: string;
@@ -28,73 +49,121 @@ export interface VicsBolOptions {
   shipperSignatureDataUrl?: string;
   driverSignatureDataUrl?: string;
   emergencyPhone?: string;
+  /** Per-label operator declarations (NMFC, class, package type, hazmat confirmation). */
+  lineDeclarations?: Record<string, BolLineDeclaration>;
+  /** Explicit human approval to issue this as a Bill of Lading (not a draft). */
+  humanApproved?: boolean;
 }
 
-/**
- * Builds a clean SVG Code-128 pseudo-barcode for document scanning.
- */
-function generateBarcodeSvg(code: string): string {
-  // Simple deterministic visual barcode pattern generator
-  const bars: string[] = [];
-  let x = 10;
-  for (let i = 0; i < code.length; i++) {
-    const charCode = code.charCodeAt(i);
-    const pattern = [(charCode % 3) + 1, ((charCode >> 2) % 3) + 1, ((charCode >> 4) % 3) + 1, 2];
-    for (let p = 0; p < pattern.length; p++) {
-      const w = pattern[p];
-      if (p % 2 === 0) {
-        bars.push(`<rect x="${x}" y="0" width="${w * 1.5}" height="45" fill="#000" />`);
-      }
-      x += w * 1.5 + 1.2;
-    }
+/** HTML-escapes untrusted text for element content and double-quoted attributes. */
+export function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Only embedded raster signature images are allowed; anything else is dropped. */
+function safeImageDataUrl(url?: string): string | null {
+  if (!url) return null;
+  return /^data:image\/(png|jpeg|gif);base64,[A-Za-z0-9+/=]+$/.test(url) ? url : null;
+}
+
+const declared = (v?: string): string => (v && v.trim() ? v.trim() : UNDECLARED);
+const isDeclared = (v?: string): boolean => !!(v && v.trim());
+
+export interface BolReadiness {
+  isFinal: boolean;
+  blockers: string[];
+}
+
+/** Computes whether a document may be issued as a final BOL, and why not. */
+export function assessBolReadiness(plan: PlanFile, opts: VicsBolOptions = {}): BolReadiness {
+  const blockers: string[] = [];
+  const required: Array<[string, string | undefined]> = [
+    ['Carrier name', opts.carrierName],
+    ['SCAC', opts.scac],
+    ['Shipper name', opts.shipperName],
+    ['Shipper address', opts.shipperAddress],
+    ['Consignee name', opts.consigneeName],
+    ['Consignee address', opts.consigneeAddress],
+    ['Trailer number', opts.trailerNumber],
+    ['Seal number', opts.sealNumber],
+  ];
+  for (const [name, v] of required) if (!isDeclared(v)) blockers.push(`${name} not declared`);
+  if (plan.metrics.unknownWeightUnits > 0) blockers.push(`${plan.metrics.unknownWeightUnits} unit(s) have unknown weight`);
+  if (!plan.validation.passed) blockers.push('Geometric validation reported violations');
+  if (plan.unplacedUnitIds.length > 0) blockers.push(`${plan.unplacedUnitIds.length} unit(s) not placed`);
+  const labels = new Set(plan.placements.map((p) => p.label));
+  for (const label of labels) {
+    const d = opts.lineDeclarations?.[label];
+    if (!d || !isDeclared(d.nmfc) || !isDeclared(d.freightClass)) blockers.push(`NMFC / freight class not declared for "${label}"`);
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${x + 10} 45" width="220" height="40">${bars.join('')}</svg>`;
+  if (!opts.humanApproved) blockers.push('Human approval for issuance not recorded');
+  return { isFinal: blockers.length === 0, blockers };
 }
 
 export function buildVicsBolHtml(plan: PlanFile, opts: VicsBolOptions = {}): string {
+  const readiness = assessBolReadiness(plan, opts);
+  const isFinal = readiness.isFinal;
+  const docTitle = isFinal ? 'Standard Bill of Lading (VICS)' : 'Draft Load Manifest (Unverified — Not a Bill of Lading)';
+
   const bolNum = opts.bolNumber || `BOL-${plan.inputHash.slice(0, 8).toUpperCase()}`;
-  const carrier = opts.carrierName || 'CARGOFIT MOTOR FREIGHT EXPRESS';
-  const scac = opts.scac || 'CRGO';
-  const seal = opts.sealNumber || `SEAL-${plan.inputHash.slice(0, 6).toUpperCase()}`;
-  const trailer = opts.trailerNumber || plan.equipmentId.toUpperCase();
+  const carrier = declared(opts.carrierName);
+  const scac = declared(opts.scac);
+  const seal = declared(opts.sealNumber);
+  const trailer = declared(opts.trailerNumber);
   const dateStr = new Date(plan.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  const terms = opts.freightChargeTerms || 'Prepaid';
+  const terms = opts.freightChargeTerms || UNDECLARED;
 
-  const shipperName = opts.shipperName || 'ACME LOGISTICS DALLAS HUB';
-  const shipperAddr = opts.shipperAddress || '4400 Interstate Highway 35 North';
-  const shipperCSZ = opts.shipperCityStateZip || 'Dallas, TX 75201';
-
-  const consigneeName = opts.consigneeName || 'APEX REGIONAL DISTRIBUTION CENTER';
-  const consigneeAddr = opts.consigneeAddress || '990 Logistics Blvd, Dock Bay 14';
-  const consigneeCSZ = opts.consigneeCityStateZip || 'Chicago, IL 60601';
+  const shipperName = declared(opts.shipperName);
+  const shipperAddr = declared(opts.shipperAddress);
+  const shipperCSZ = declared(opts.shipperCityStateZip);
+  const consigneeName = declared(opts.consigneeName);
+  const consigneeAddr = declared(opts.consigneeAddress);
+  const consigneeCSZ = declared(opts.consigneeCityStateZip);
 
   const totalLoadedPieces = plan.placements.length;
-  const totalWeightLbs = Math.round(plan.metrics.loadedWeightKg * 2.20462);
   const eqName = plan.scenario.equipment.find((e) => e.id === plan.equipmentId)?.name || plan.equipmentId.toUpperCase();
 
-  // Group cargo by SKU/label
-  const grouped = new Map<string, { count: number; weightKg: number; stop: number; isHazmat: boolean }>();
+  // Actual per-unit weights from the manifest (kg); null = unknown. Never estimated.
+  const unitWeightKg = new Map<string, number | null>();
+  for (const u of expandUnits(plan.scenario.rows)) unitWeightKg.set(u.id, u.weightKg);
+  const toLbs = (kg: number) => Math.round(kg * 2.20462);
+  const unknownTotal = plan.metrics.unknownWeightUnits;
+  const totalWeightLbs = toLbs(plan.metrics.loadedWeightKg);
+  const totalWeightText = unknownTotal > 0
+    ? `≥ ${totalWeightLbs.toLocaleString()} lbs (${unknownTotal} unit(s) weight UNKNOWN)`
+    : `${totalWeightLbs.toLocaleString()} lbs`;
+
+  // Group cargo by SKU/label with real weights
+  const grouped = new Map<string, { count: number; weightKg: number; unknown: number; stop: number; isHazmat: boolean }>();
   for (const p of plan.placements) {
-    const existing = grouped.get(p.label) || { count: 0, weightKg: 0, stop: p.stop ?? 1, isHazmat: false };
-    existing.count += 1;
-    existing.stop = p.stop ?? existing.stop;
-    grouped.set(p.label, existing);
+    const g = grouped.get(p.label) || { count: 0, weightKg: 0, unknown: 0, stop: p.stop ?? 1, isHazmat: false };
+    g.count += 1;
+    g.stop = p.stop ?? g.stop;
+    const w = unitWeightKg.get(p.unitId);
+    if (w === null || w === undefined) g.unknown += 1; else g.weightKg += w;
+    grouped.set(p.label, g);
   }
-
-  // Check hazmat in manifest
+  // Hazmat flag: label heuristic, overridden by explicit operator declaration.
   for (const [label, data] of grouped.entries()) {
-    if (/haz|class\s*[1-9]|un\s*\d{4}|flamm|danger/i.test(label)) {
-      data.isHazmat = true;
-    }
+    const decl = opts.lineDeclarations?.[label]?.hazmat;
+    data.isHazmat = decl !== undefined ? decl : /haz|class\s*[1-9]|un\s*\d{4}|flamm|danger/i.test(label);
   }
 
-  const barcodeSvg = generateBarcodeSvg(bolNum);
+  const barcodeSvg = code128Svg(bolNum);
+  const e = escapeHtml;
+  const sigShipper = safeImageDataUrl(opts.shipperSignatureDataUrl);
+  const sigDriver = safeImageDataUrl(opts.driverSignatureDataUrl);
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>VICS Bill of Lading — ${bolNum}</title>
+  <title>${e(docTitle)} — ${e(bolNum)}</title>
   <style>
     @page { size: letter portrait; margin: 10mm; }
     * { box-sizing: border-box; }
@@ -243,6 +312,15 @@ export function buildVicsBolHtml(plan: PlanFile, opts: VicsBolOptions = {}): str
       font-size: 8.5px;
       color: #475569;
     }
+    .draft-banner {
+      max-width: 820px;
+      margin: 0 auto 8px;
+      padding: 8px 12px;
+      border: 2px solid #b91c1c;
+      background: #fef2f2;
+      color: #7f1d1d;
+      font-size: 11px;
+    }
     .no-print {
       max-width: 820px;
       margin: 12px auto;
@@ -272,18 +350,19 @@ export function buildVicsBolHtml(plan: PlanFile, opts: VicsBolOptions = {}): str
     <button class="btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
   </div>
 
+  ${isFinal ? '' : `<div class="draft-banner"><b>DRAFT — NOT A VALID BILL OF LADING.</b> Outstanding items: ${readiness.blockers.map(e).join('; ')}.</div>`}
   <div class="bol-box">
     <!-- Header -->
     <div class="header-row">
       <div class="head-left">
-        <h1>Standard Bill of Lading (VICS)</h1>
-        <div class="meta-line"><b>Date:</b> ${dateStr}</div>
-        <div class="meta-line"><b>Carrier Name:</b> ${carrier}</div>
-        <div class="meta-line"><b>SCAC:</b> ${scac} &nbsp;|&nbsp; <b>Pro / Load #:</b> ${plan.inputHash.slice(0, 10).toUpperCase()}</div>
+        <h1>${e(docTitle)}</h1>
+        <div class="meta-line"><b>Date:</b> ${e(dateStr)}</div>
+        <div class="meta-line"><b>Carrier Name:</b> ${e(carrier)}</div>
+        <div class="meta-line"><b>SCAC:</b> ${e(scac)} &nbsp;|&nbsp; <b>Pro / Load #:</b> ${e(declared(opts.proNumber))}</div>
       </div>
       <div class="head-right">
         <div class="meta-line"><b>Bill of Lading Number:</b></div>
-        <div style="font-size: 15px; font-weight: 800; font-family: monospace; letter-spacing: 1px;">${bolNum}</div>
+        <div style="font-size: 15px; font-weight: 800; font-family: monospace; letter-spacing: 1px;">${e(bolNum)}</div>
         <div class="barcode-wrap">${barcodeSvg}</div>
       </div>
     </div>
@@ -292,17 +371,17 @@ export function buildVicsBolHtml(plan: PlanFile, opts: VicsBolOptions = {}): str
     <div class="grid-2">
       <div class="grid-col">
         <div class="col-title">Ship From (Origin Shipper)</div>
-        <div class="party-name">${shipperName}</div>
-        <div>${shipperAddr}</div>
-        <div>${shipperCSZ}</div>
-        <div style="margin-top: 4px; font-size: 9.5px; color: #475569;"><b>SID#:</b> SID-${plan.inputHash.slice(0, 6).toUpperCase()} &nbsp; <b>FOB:</b> Origin</div>
+        <div class="party-name">${e(shipperName)}</div>
+        <div>${e(shipperAddr)}</div>
+        <div>${e(shipperCSZ)}</div>
+        <div style="margin-top: 4px; font-size: 9.5px; color: #475569;"><b>SID#:</b> ${e(declared(opts.shipperId))} &nbsp; <b>FOB:</b> Origin</div>
       </div>
       <div class="grid-col">
         <div class="col-title">Ship To (Destination Consignee)</div>
-        <div class="party-name">${consigneeName}</div>
-        <div>${consigneeAddr}</div>
-        <div>${consigneeCSZ}</div>
-        <div style="margin-top: 4px; font-size: 9.5px; color: #475569;"><b>CID#:</b> CID-${plan.inputHash.slice(0, 6).toUpperCase()} &nbsp; <b>FOB:</b> Destination</div>
+        <div class="party-name">${e(consigneeName)}</div>
+        <div>${e(consigneeAddr)}</div>
+        <div>${e(consigneeCSZ)}</div>
+        <div style="margin-top: 4px; font-size: 9.5px; color: #475569;"><b>CID#:</b> ${e(declared(opts.consigneeId))} &nbsp; <b>FOB:</b> Destination</div>
       </div>
     </div>
 
@@ -310,26 +389,26 @@ export function buildVicsBolHtml(plan: PlanFile, opts: VicsBolOptions = {}): str
     <div class="grid-2">
       <div class="grid-col" style="flex: 0.8;">
         <div class="col-title">Third Party Freight Charges Bill To</div>
-        <div style="font-weight: 600;">${opts.billToName || shipperName}</div>
-        <div>${opts.billToAddress || shipperAddr}</div>
-        <div>${opts.billToCityStateZip || shipperCSZ}</div>
-        <div style="margin-top: 4px;"><b>Freight Terms:</b> ${terms}</div>
+        <div style="font-weight: 600;">${e(opts.billToName || shipperName)}</div>
+        <div>${e(opts.billToAddress || shipperAddr)}</div>
+        <div>${e(opts.billToCityStateZip || shipperCSZ)}</div>
+        <div style="margin-top: 4px;"><b>Freight Terms:</b> ${e(terms)}</div>
       </div>
       <div class="grid-col" style="flex: 1.2;">
         <div class="col-title">Special Instructions &amp; Safety Placarding</div>
-        <div>${opts.specialInstructions || 'Standard motor freight delivery. Maintain securement per FMCSA 49 CFR Part 393. Check seal integrity upon arrival.'}</div>
-        ${opts.emergencyPhone ? `<div style="margin-top: 4px; font-weight: 700; color: #b91c1c;">24-HR EMERGENCY RESPONSE: ${opts.emergencyPhone}</div>` : ''}
+        <div>${e(opts.specialInstructions || 'None declared.')}</div>
+        ${opts.emergencyPhone ? `<div style="margin-top: 4px; font-weight: 700; color: #b91c1c;">24-HR EMERGENCY RESPONSE: ${e(opts.emergencyPhone)}</div>` : ''}
       </div>
     </div>
 
     <!-- Carrier Equipment bar -->
     <div class="carrier-info-bar">
-      <div class="carrier-cell"><b>Trailer #</b> ${trailer}</div>
-      <div class="carrier-cell"><b>Seal #</b> ${seal}</div>
-      <div class="carrier-cell"><b>SCAC</b> ${scac}</div>
-      <div class="carrier-cell"><b>Equipment Spec</b> ${eqName}</div>
-      <div class="carrier-cell"><b>Total Handling Units</b> ${totalLoadedPieces} Pallet(s)</div>
-      <div class="carrier-cell"><b>Total Gross Weight</b> ${totalWeightLbs.toLocaleString()} lbs</div>
+      <div class="carrier-cell"><b>Trailer #</b> ${e(trailer)}</div>
+      <div class="carrier-cell"><b>Seal #</b> ${e(seal)}</div>
+      <div class="carrier-cell"><b>SCAC</b> ${e(scac)}</div>
+      <div class="carrier-cell"><b>Equipment Spec</b> ${e(eqName)}</div>
+      <div class="carrier-cell"><b>Total Handling Units</b> ${totalLoadedPieces} Handling Unit(s)</div>
+      <div class="carrier-cell"><b>Total Gross Weight</b> ${e(totalWeightText)}</div>
     </div>
 
     <!-- Commodities Table -->
@@ -347,50 +426,55 @@ export function buildVicsBolHtml(plan: PlanFile, opts: VicsBolOptions = {}): str
         </tr>
       </thead>
       <tbody>
-        ${Array.from(grouped.entries()).map(([label, d], idx) => {
-          const estLineWeight = Math.round((totalWeightLbs / totalLoadedPieces) * d.count);
+        ${Array.from(grouped.entries()).map(([label, d]) => {
+          const decl = opts.lineDeclarations?.[label];
+          const lineWeight = d.unknown > 0
+            ? `${d.weightKg > 0 ? '≥ ' + toLbs(d.weightKg).toLocaleString() + ' ' : ''}(${d.unknown} unit(s) UNKNOWN)`
+            : toLbs(d.weightKg).toLocaleString();
           return `<tr>
             <td style="font-weight: 700;">${d.count}</td>
-            <td>PLT</td>
-            <td>${estLineWeight.toLocaleString()}</td>
-            <td style="text-align: center; font-weight: 800; color: ${d.isHazmat ? '#dc2626' : '#94a3b8'};">${d.isHazmat ? 'X' : '—'}</td>
-            <td><b>${label}</b></td>
-            <td>Stop ${d.stop}</td>
-            <td>${100000 + idx * 110}</td>
-            <td>Class 70</td>
+            <td>${e(declared(decl?.packageType))}</td>
+            <td>${e(lineWeight)}</td>
+            <td style="text-align: center; font-weight: 800; color: ${d.isHazmat ? '#dc2626' : '#94a3b8'};" title="Label heuristic unless operator-declared; verify against shipping papers">${d.isHazmat ? 'X' : '—'}</td>
+            <td><b>${e(label)}</b></td>
+            <td>Stop ${e(d.stop)}</td>
+            <td>${e(declared(decl?.nmfc))}</td>
+            <td>${e(declared(decl?.freightClass))}</td>
           </tr>`;
         }).join('')}
         <tr style="background: #f8fafc; font-weight: 800; border-top: 1.5px solid #000;">
           <td>${totalLoadedPieces}</td>
-          <td>PLT</td>
-          <td>${totalWeightLbs.toLocaleString()} lbs</td>
-          <td colspan="5" style="text-align: right; padding-right: 12px; color: #475569;">GRAND TOTAL DECLARED FREIGHT</td>
+          <td></td>
+          <td>${e(totalWeightText)}</td>
+          <td colspan="5" style="text-align: right; padding-right: 12px; color: #475569;">TOTAL (FROM MANIFEST)</td>
         </tr>
       </tbody>
     </table>
 
     <!-- Regulatory Certification Statement -->
     <div class="cert-box">
-      This is to certify that the above named materials are properly classified, packaged, marked, and labeled, and are in proper condition for transportation according to the applicable regulations of the Department of Transportation (DOT) and FMCSA 49 CFR Parts 392 &amp; 393. The carrier acknowledges receipt of packages and required placards. Carrier certifies emergency response info was provided.
+      ${isFinal
+        ? 'This is to certify that the above named materials are properly classified, packaged, marked, and labeled, and are in proper condition for transportation according to the applicable regulations of the Department of Transportation (DOT) and FMCSA 49 CFR Parts 392 &amp; 393. The carrier acknowledges receipt of packages and required placards. Carrier certifies emergency response info was provided.'
+        : 'NO CERTIFICATION. This draft was generated from a geometric load plan and has not been verified or approved for issuance. Classification, packaging, weights, placarding and party details must be confirmed by the shipper before this becomes a Bill of Lading.'}
     </div>
 
     <!-- Signatures Section -->
     <div class="sig-grid">
       <div class="sig-col">
         <div class="col-title">Shipper Signature &amp; Date</div>
-        ${opts.shipperSignatureDataUrl ? `<img class="sig-img" src="${opts.shipperSignatureDataUrl}" alt="Shipper Signature" />` : '<div style="height: 35px;"></div>'}
+        ${sigShipper ? `<img class="sig-img" src="${e(sigShipper)}" alt="Shipper Signature" />` : '<div style="height: 35px;"></div>'}
         <div class="sig-line">
           Shipper certifies proper packaging &amp; weight.<br>
-          <b>Date:</b> ${dateStr}
+          <b>Date:</b> ${e(dateStr)}
         </div>
       </div>
 
       <div class="sig-col">
         <div class="col-title">Carrier / Driver Signature &amp; Date</div>
-        ${opts.driverSignatureDataUrl ? `<img class="sig-img" src="${opts.driverSignatureDataUrl}" alt="Driver Signature" />` : '<div style="height: 35px;"></div>'}
+        ${sigDriver ? `<img class="sig-img" src="${e(sigDriver)}" alt="Driver Signature" />` : '<div style="height: 35px;"></div>'}
         <div class="sig-line">
           Carrier acknowledges receipt of ${totalLoadedPieces} piece(s).<br>
-          <b>${opts.driverLoadAndCount ? '[X] Driver Load & Count' : '[X] Shipper Load & Count'}</b> &nbsp;|&nbsp; <b>Date:</b> ${dateStr}
+          <b>${opts.driverLoadAndCount ? '[X] Driver Load &amp; Count' : '[X] Shipper Load &amp; Count'}</b> &nbsp;|&nbsp; <b>Date:</b> ${e(dateStr)}
         </div>
       </div>
 
