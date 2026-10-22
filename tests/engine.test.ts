@@ -9,6 +9,8 @@ import { computeMetrics, computeMultiStopStages } from '../src/engine/analyze';
 import { buildHtmlReport, buildWorkOrderHtml, buildPlanFile } from '../src/engine/report';
 import { recommendFleet } from '../src/engine/fleet';
 import { renderIso, rowColors } from '../src/engine/viz';
+import { exportToGltf } from '../src/engine/gltf';
+import { verifyBarcodeMatch } from '../src/engine/barcode';
 import type { CargoRow, EquipmentProfile, Placement, Scenario, Unit } from '../src/engine/types';
 
 const fx = (n: string) => readFileSync(new URL(`../fixtures/${n}`, import.meta.url), 'utf8');
@@ -395,8 +397,7 @@ describe('performance', () => {
     expect(plan.unblockedForwardCount).toBe(1);
   });
 
-  it('exports valid Khronos glTF 2.0 3D scene representation', async () => {
-    const { exportToGltf } = await import('../src/engine/gltf');
+  it('exports valid Khronos glTF 2.0 3D scene representation', () => {
     const eqn = normalizeEquipment({
       id: 'test-eq', name: 'Test Box', length: 6000, width: 2400, height: 2400,
       unit: 'm', payload: 5000, massUnit: 'kg', doorWidth: 2300, doorHeight: 2300,
@@ -413,8 +414,7 @@ describe('performance', () => {
     expect(gltf.buffers[0].uri).toContain('data:application/octet-stream;base64,');
   });
 
-  it('verifies optical barcode and QR code matching against target units', async () => {
-    const { verifyBarcodeMatch } = await import('../src/engine/barcode');
+  it('verifies optical barcode and QR code matching against target units', () => {
     const exact = verifyBarcodeMatch('BOX-042', 'BOX-042', 'Industrial Machine Part');
     expect(exact.matched).toBe(true);
     expect(exact.matchedBy).toBe('unit_id');

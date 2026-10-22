@@ -6,6 +6,15 @@ import { assessBolReadiness, buildVicsBolHtml } from '../engine/vicsBol';
 import type { BolLineDeclaration } from '../engine/vicsBol';
 import { SignaturePad } from './SignaturePad';
 import { buildFreightQuoteUrl } from '../engine/quoteBridge';
+import { isProductLicensed } from './SuiteDock';
+import {
+  IconBox3d,
+  IconFileText,
+  IconRadio,
+  IconDollar,
+  IconExternalLink,
+  IconCheck,
+} from './icons';
 import { expandUnits, normalizeEquipment } from '../engine/normalize';
 import { cargoToCsv } from '../engine/csv';
 import { diffRows, diffResults, summarize } from '../engine/scenario';
@@ -120,18 +129,53 @@ export function VersionsStep(p: AppApi) {
           {!result ? <p className="muted">No computed plan to export yet.</p> : (
             <>
               <div className="exports">
-                <button className="btn primary" disabled={!ready} onClick={() => exportAs('interactive')} title="Single-file offline HTML with embedded 3D viewer, rotation, and loading player">★ Interactive 3D (.html)</button>
-                <button className="btn" disabled={!ready} onClick={() => exportAs('workorder')} title="Physical loading checklist and driver bill-of-lading print sheet">📋 Loading Work Order</button>
-                <button className="btn" disabled={!ready} onClick={() => exportAs('vicsbol')} title="VICS Bill of Lading when every field is declared and approved; otherwise a clearly marked Draft Load Manifest">📜 VICS BOL / Draft</button>
+                <button className="btn primary" disabled={!ready} onClick={() => exportAs('interactive')} title="Single-file offline HTML with embedded 3D viewer, rotation, and loading player">Interactive 3D (.html)</button>
+                <button className="btn" disabled={!ready} onClick={() => exportAs('workorder')} title="Physical loading checklist and driver bill-of-lading print sheet">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><IconFileText size={14} /> Loading Work Order</span>
+                </button>
+                <button className="btn" disabled={!ready} onClick={() => exportAs('vicsbol')} title="VICS Bill of Lading when every field is declared and approved; otherwise a clearly marked Draft Load Manifest">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><IconFileText size={14} /> VICS BOL / Draft</span>
+                </button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('html')}>Report (HTML, printable)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('open')}>Open report to print/PDF</button>
-                <button className="btn" disabled={!ready} onClick={() => exportAs('gltf')} title="Export Khronos glTF 2.0 3D CAD model for Blender, Three.js, or Unity">🧊 3D CAD (.gltf)</button>
+                <button className="btn" disabled={!ready} onClick={() => exportAs('gltf')} title="Export Khronos glTF 2.0 3D CAD model for Blender, Three.js, or Unity">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><IconBox3d size={14} /> 3D CAD (.gltf)</span>
+                </button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('json')}>Plan file (JSON)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('csv')}>Placements (CSV)</button>
-                <button className="btn" disabled={!ready} onClick={() => exportAs('edi214')} title="Export ANSI X12 EDI 214 Carrier Shipment Status Message with Seal Verification">📡 EDI 214 Status</button>
-                <button className="btn sm" disabled={!ready} onClick={() => setSignatureModal('driver')} title="Sign digitally on glass as driver">✍️ {driverSig ? '✓ Driver Signed' : 'Driver Sign on Glass'}</button>
-                <button className="btn sm" disabled={!ready} onClick={() => setSignatureModal('shipper')} title="Sign digitally on glass as shipper">✍️ {shipperSig ? '✓ Shipper Signed' : 'Shipper Sign'}</button>
-                <button className="btn" style={{ background: '#0f172a', color: '#38bdf8', borderColor: '#334155', fontWeight: 'bold' }} disabled={!ready} onClick={() => { const plan = makePlan(); if (plan) window.open(buildFreightQuoteUrl(plan), '_blank'); }} title="Open Product 02 Freight Pricing Engine with this load's equipment, weight, and stops">💰 Quote in Product 02 ↗</button>
+                <button className="btn" disabled={!ready} onClick={() => exportAs('edi214')} title="Export ANSI X12 EDI 214 Carrier Shipment Status Message with Seal Verification">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><IconRadio size={14} /> EDI 214 Status</span>
+                </button>
+                <button className="btn sm" disabled={!ready} onClick={() => setSignatureModal('driver')} title="Sign digitally on glass as driver">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    {driverSig ? <><IconCheck size={12} /> Driver Signed</> : 'Driver Sign on Glass'}
+                  </span>
+                </button>
+                <button className="btn sm" disabled={!ready} onClick={() => setSignatureModal('shipper')} title="Sign digitally on glass as shipper">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    {shipperSig ? <><IconCheck size={12} /> Shipper Signed</> : 'Shipper Sign'}
+                  </span>
+                </button>
+                <button
+                  className="btn"
+                  style={{ background: '#0f172a', color: '#38bdf8', borderColor: '#334155', fontWeight: 'bold' }}
+                  disabled={!ready}
+                  onClick={() => {
+                    const plan = makePlan();
+                    if (!plan) return;
+                    if (isProductLicensed('product-02-freight-pricing')) {
+                      window.open(buildFreightQuoteUrl(plan), '_blank');
+                    } else {
+                      exportAs('json');
+                      p.notify('warn', 'Pricing HUD is an add-on ($199/mo). Exported Open Logistics Load JSON for external ERP, or upgrade via Apps dock.');
+                    }
+                  }}
+                  title="Open Product 02 Freight Pricing Engine with this load's equipment, weight, and stops"
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <IconDollar size={14} /> Quote in Product 02 <IconExternalLink size={12} />
+                  </span>
+                </button>
                 <button className="btn" onClick={() => { const ok = download(`${slug(scenario.name)}.cargo.csv`, cargoToCsv(scenario.rows), 'text/csv'); p.notify(ok ? 'ok' : 'err', ok ? 'Manifest CSV downloaded.' : 'Download failed.'); }}>Manifest (CSV)</button>
               </div>
               <details className="bol-details">
@@ -175,7 +219,7 @@ export function VersionsStep(p: AppApi) {
                   {s.revisions.slice().reverse().map((r) => (
                     <li key={r.rev}>
                       <span className="mono">r{r.rev}</span> <span className="muted small">{new Date(r.savedAt).toLocaleString()}</span> {r.note && <i>“{r.note}”</i>}
-                      <span className="rsum">{r.summaries.map((x) => x.status === 'FEASIBLE_UNDER_MODELED_CONSTRAINTS' ? '✓' : x.status === 'PROVEN_INFEASIBLE_UNDER_MODELED_CONSTRAINTS' ? '✕' : '·').join(' ')}</span>
+                      <span className="rsum">{r.summaries.map((x) => x.status === 'FEASIBLE_UNDER_MODELED_CONSTRAINTS' ? 'PASS' : x.status === 'PROVEN_INFEASIBLE_UNDER_MODELED_CONSTRAINTS' ? 'FAIL' : '·').join(' ')}</span>
                       <button className="btn sm" onClick={() => { p.loadScenario(JSON.parse(JSON.stringify(r.scenario)), s.id, r.inputHash); p.solver.restore(r.results, r.inputHash); p.notify('ok', `Restored ${s.name} r${r.rev} with its saved plans.`); p.go('decision'); }}>Restore</button>
                       <button className="btn sm ghost" onClick={() => setCmp({ id: s.id, rev: r.rev })}>Compare with current</button>
                     </li>))}

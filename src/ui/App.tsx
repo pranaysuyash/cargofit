@@ -13,8 +13,8 @@ import { PlanStep } from './PlanStep';
 import { VersionsStep } from './VersionsStep';
 import { blankScenario, sampleScenario, equipmentPresets } from './samples';
 import { useSolver } from './useSolver';
-import { getFreightPricingBaseUrl } from '../engine/quoteBridge';
 import { SuiteDock } from './SuiteDock';
+import { platformBus } from '../engine/platformBus';
 
 export type StepId = 'cargo' | 'equipment' | 'decision' | 'plan' | 'versions';
 export const STEPS: { id: StepId; n: string; label: string; hint: string }[] = [
@@ -118,6 +118,13 @@ export function App() {
   }, []);
 
   const [saved, setSaved] = useState<SavedScenario[]>(() => loadAll(window.localStorage));
+
+  useEffect(() => {
+    const unsub = platformBus.subscribe('VEHICLE_CHANGED', (payload) => {
+      notify('ok', `Cross-tab Sync: Equipment updated to ${payload.vehicleName}`);
+    });
+    return () => unsub();
+  }, [notify]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [lastSavedHash, setLastSavedHash] = useState<string | null>(null);
   const [baseline, setBaseline] = useState<Baseline | null>(null);
@@ -234,14 +241,10 @@ export function App() {
 
   return (
     <div className="shell">
+      <a href="#main" className="skip-link">Skip to main content</a>
       <SuiteDock currentProductId="product-01-cargo-fit" />
       <header className="topbar">
         <a className="brand" href="#/" aria-label="Cargo Fit home"><span className="mark" aria-hidden="true" />Cargo Fit<span className="tag">Product 01 · working title</span></a>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
-          <a href={getFreightPricingBaseUrl()} target="_blank" rel="noreferrer" className="btn sm ghost" title="Open Product 02: Freight Pricing & Telemetry HUD">💰 Pricing ↗</a>
-          <a href={typeof window !== 'undefined' && window.location.hostname.includes('pages.dev') ? 'https://hosdispatch.pages.dev' : 'http://localhost:5175/'} target="_blank" rel="noreferrer" className="btn sm ghost" title="Open Product 03: HOS & Corridor Legality Planner">⏱️ HOS ↗</a>
-          <a href="http://localhost:5176/" target="_blank" rel="noreferrer" className="btn sm ghost" style={{ color: '#38bdf8' }} title="Open Product 04: Fleet & Cargo Asset Studio">🚛 Studio ↗</a>
-        </div>
         <input className="name" aria-label="Scenario name" value={scenario.name} disabled={!!readOnly}
           onChange={(e) => setScenarioSafe((s) => ({ ...s, name: e.target.value }))} />
         <div className="chips" aria-live="polite">

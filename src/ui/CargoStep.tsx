@@ -151,7 +151,7 @@ export function CargoStep(p: AppApi) {
                   setSheetPicker(null);
                 }}
               >
-                <span className="arr-title">📄 {s.name}</span>
+                <span className="arr-title">{s.name}</span>
                 <span className="arr-stat mono">{s.data.length} row(s) detected</span>
               </button>
             ))}
@@ -266,7 +266,7 @@ IEA*1*000000001~`;
                     <td className="mono dim conv">{mm ? `${fmtNum(mm[0], 0)}×${fmtNum(mm[1], 0)}×${fmtNum(mm[2], 0)}` : '—'}{r.weight && r.weight > 0 ? ` · ${fmtNum(toKg(r.weight, r.weightUnit), 1)} kg` : ''}</td>
                     <td className="actions-cell">
                       <button className={`btn sm ${inspectUid === r.uid ? 'primary' : 'ghost'}`} title="Inspect 3D box and allowed orientations" onClick={() => { setInspectUid(inspectUid === r.uid ? null : r.uid); setOrientIdx(0); }}>3D</button>
-                      <button className="btn sm ghost" aria-label={`Remove row ${i + 1}`} disabled={disabled} onClick={() => setScenario((s) => ({ ...s, rows: s.rows.filter((x) => x.uid !== r.uid) }))}>✕</button>
+                      <button className="btn sm ghost" aria-label={`Remove row ${i + 1}`} disabled={disabled} onClick={() => setScenario((s) => ({ ...s, rows: s.rows.filter((x) => x.uid !== r.uid) }))}>Close</button>
                     </td>
                   </tr>
                 );
@@ -318,7 +318,7 @@ IEA*1*000000001~`;
               <div className="actions">
                 <button className="btn sm ghost" onClick={() => setYawDeg((y) => (y - 30 + 360) % 360)}>⟲ Rotate -30°</button>
                 <button className="btn sm ghost" onClick={() => setYawDeg((y) => (y + 30) % 360)}>⟳ Rotate +30°</button>
-                <button className="btn sm ghost" onClick={() => setInspectUid(null)}>✕ Close 3D</button>
+                <button className="btn sm ghost" onClick={() => setInspectUid(null)}>Close 3D</button>
               </div>
             </div>
 
@@ -344,7 +344,7 @@ IEA*1*000000001~`;
                   <div><span>Volume</span><b>{fmtNum(volM3, 3)} m³ ({fmtNum(volM3 * 35.3147, 1)} ft³)</b></div>
                   <div><span>Unit Weight</span><b>{weightKg !== null ? `${fmtNum(weightKg, 1)} kg` : 'unknown'}</b></div>
                   <div><span>Est. Density</span><b>{density !== null ? `${fmtNum(density, 0)} kg/m³` : 'n/a (unknown wt)'}</b></div>
-                  <div><span>Top Surface</span><b className={r.stackable ? 'ok-t' : 'bad-t'}>{r.stackable ? '✓ Stackable' : '⚠ No-Stack Surface'}</b></div>
+                  <div><span>Top Surface</span><b className={r.stackable ? 'ok-t' : 'bad-t'}>{r.stackable ? 'Stackable' : 'No-Stack Surface'}</b></div>
                 </div>
               </div>
             </div>

@@ -313,11 +313,11 @@ export function PlanStep(p: AppApi) {
                   onClick={() => setActiveStageIdx(i)}
                 >
                   <span className="arr-title">
-                    {i === 0 ? '🏁 Origin Departure (Full)' : `🛑 Post-Stop ${stg.stop} Drop`}
+                    {i === 0 ? 'Origin Departure (Full)' : `Post-Stop ${stg.stop} Drop`}
                   </span>
                   <span className="arr-stat mono">
                     {stg.remainingUnits} units · {fmtKgDual(stg.remainingWeightKg)}
-                    {stg.warning && <b className="warn-t"> (⚠ Axle Alert)</b>}
+                    {stg.warning && <b className="warn-t"> (Axle Alert)</b>}
                   </span>
                 </button>
               );
@@ -325,7 +325,7 @@ export function PlanStep(p: AppApi) {
           </div>
           {activeStage?.warning && (
             <div className="banner warn" style={{ marginTop: 4 }}>
-              <span>⚠ <b>Progressive Axle Risk:</b> {activeStage.warning}</span>
+              <span><b>Progressive Axle Risk:</b> {activeStage.warning}</span>
             </div>
           )}
         </div>
@@ -347,7 +347,7 @@ export function PlanStep(p: AppApi) {
               <div className="compliance-cell">
                 <span className="arr-lbl">FMCSA Bridge Formula B:</span>
                 <span className={`chip ${bridgeReport.allCompliant ? 'ok' : 'err'}`}>
-                  {bridgeReport.allCompliant ? '✓ COMPLIANT' : '⚠ OVERLOAD VIOLATION'}
+                  {bridgeReport.allCompliant ? 'COMPLIANT' : 'OVERLOAD VIOLATION'}
                 </span>
                 <span className="mono small">
                   GVW: {bridgeReport.overallGvwLbs.toLocaleString()} / {bridgeReport.maxLegalGvwLbs.toLocaleString()} lbs
@@ -359,7 +359,7 @@ export function PlanStep(p: AppApi) {
               <div className="compliance-cell">
                 <span className="arr-lbl">Cargo Restraints (49 CFR § 393):</span>
                 <span className="chip ok">
-                  🔗 {securementPlan.totalTieDownsCount} Tie-Down(s) Required
+                  {securementPlan.totalTieDownsCount} Tie-Down(s) Required
                 </span>
                 <span className="mono small">
                   Min WLL: {securementPlan.totalRequiredWllLbs.toLocaleString()} lbs (≥50% weight) · Deck: {securementPlan.deckFrictionMu}μ
@@ -431,7 +431,7 @@ export function PlanStep(p: AppApi) {
                       className={`btn sm ${showScanner ? 'primary' : 'ghost'}`}
                       onClick={() => setShowScanner(!showScanner)}
                     >
-                      ⌨ {showScanner ? 'Hide Manual Input' : 'Scan Pallet Barcode'}
+                      {showScanner ? 'Hide Manual Input' : 'Scan Pallet Barcode'}
                     </button>
                     <button
                       type="button"
@@ -439,7 +439,7 @@ export function PlanStep(p: AppApi) {
                       onClick={() => setShowCamera(true)}
                       title="Open device camera for optical barcode/QR detection"
                     >
-                      🎥 Live Camera Scanner
+                      Live Camera Scanner
                     </button>
 
                     {showCamera && activeStepUnit && (
@@ -450,7 +450,7 @@ export function PlanStep(p: AppApi) {
                         onScan={(scannedCode) => {
                           const res = verifyBarcodeMatch(scannedCode, activeStepUnit.unitId, activeStepUnit.label);
                           if (res.matched) {
-                            setScanStatus({ ok: true, msg: `✓ Camera tag verified: ${activeStepUnit.unitId}` });
+                            setScanStatus({ ok: true, msg: `Camera tag verified: ${activeStepUnit.unitId}` });
                             const next = currentStepNum + 1;
                             setUpTo(next >= working.length ? null : next);
                             const targetUnit = working.find((w) => w.order === next);
@@ -458,7 +458,7 @@ export function PlanStep(p: AppApi) {
                             setShowCamera(false);
                             setTimeout(() => setScanStatus(null), 3500);
                           } else {
-                            setScanStatus({ ok: false, msg: `⚠ Scanned code "${scannedCode}" mismatch for ${activeStepUnit.unitId}` });
+                            setScanStatus({ ok: false, msg: `Scanned code "${scannedCode}" mismatch for ${activeStepUnit.unitId}` });
                           }
                         }}
                       />
@@ -471,7 +471,7 @@ export function PlanStep(p: AppApi) {
                           if (barcodeInput.trim()) {
                             const res = verifyBarcodeMatch(barcodeInput, activeStepUnit.unitId, activeStepUnit.label);
                             if (res.matched) {
-                              setScanStatus({ ok: true, msg: `✓ Tag match: ${activeStepUnit.unitId} verified` });
+                              setScanStatus({ ok: true, msg: `Tag match: ${activeStepUnit.unitId} verified` });
                               const next = currentStepNum + 1;
                               setUpTo(next >= working.length ? null : next);
                               const targetUnit = working.find((w) => w.order === next);
@@ -479,7 +479,7 @@ export function PlanStep(p: AppApi) {
                               setBarcodeInput('');
                               setTimeout(() => setScanStatus(null), 3000);
                             } else {
-                              setScanStatus({ ok: false, msg: `⚠ Tag "${barcodeInput}" mismatch for ${activeStepUnit.unitId}` });
+                              setScanStatus({ ok: false, msg: `Tag "${barcodeInput}" mismatch for ${activeStepUnit.unitId}` });
                             }
                           }
                         }}
@@ -497,7 +497,7 @@ export function PlanStep(p: AppApi) {
                           type="button"
                           className="btn sm ghost"
                           onClick={() => {
-                            setScanStatus({ ok: true, msg: `✓ Direct confirm: ${activeStepUnit.unitId} verified` });
+                            setScanStatus({ ok: true, msg: `Direct confirm: ${activeStepUnit.unitId} verified` });
                             const next = currentStepNum + 1;
                             setUpTo(next >= working.length ? null : next);
                             const targetUnit = working.find((w) => w.order === next);
@@ -524,8 +524,8 @@ export function PlanStep(p: AppApi) {
                 <span className="compass-t">FRONT (NOSE) ⬆</span>
                 <div className="compass-mid">
                   <span>⬅ DRIVER</span>
-                  <span className="compass-dot">⌖</span>
-                  <span>CURB ➡</span>
+                  <span className="compass-dot">+</span>
+                  <span>CURB &rarr;</span>
                 </div>
                 <span className="compass-b">REAR DOOR ⬇</span>
               </div>
@@ -536,7 +536,7 @@ export function PlanStep(p: AppApi) {
                     <span className="dock-axle-title">Axle Weight Distribution (Est.)</span>
                     {metrics.axleEst.bridgeFormulaCompliant !== undefined && (
                       <span className={`chip sm ${metrics.axleEst.bridgeFormulaCompliant ? 'ok' : 'warn'}`}>
-                        {metrics.axleEst.bridgeFormulaCompliant ? '✓ Bridge Formula B OK' : '⚠ Bridge Formula Alert'}
+                        {metrics.axleEst.bridgeFormulaCompliant ? 'Bridge Formula B OK' : 'Bridge Formula Alert'}
                       </span>
                     )}
                   </div>
@@ -577,30 +577,30 @@ export function PlanStep(p: AppApi) {
             <button className="btn sm" onClick={() => setRot((r) => (r + 3) % 4)} title="Rotate view 90° CCW">⟲ {rot * 90}°</button>
             <button className="btn sm" onClick={() => setRot((r) => (r + 1) % 4)} title="Rotate view 90° CW">⟳ {((rot + 1) * 90) % 360}°</button>
             <button className={`btn sm ${xray ? 'accent-active' : ''}`} onClick={() => setXray(!xray)} title="Toggle X-Ray translucent view">
-              {xray ? '👁 X-Ray ON' : '👁 X-Ray'}
+              {xray ? 'X-Ray ON' : 'X-Ray'}
             </button>
             <button className={`btn sm ${showGrid ? 'accent-active' : ''}`} onClick={() => setShowGrid(!showGrid)} title="Toggle floor grid lines">
               {showGrid ? '⊞ Grid ON' : '⊞ Grid'}
             </button>
             <label className="inl tool-slider" title="Volumetric exploded view">
-              💥 Explode
+              Explode
               <input type="range" min="0" max="1" step="0.05" value={explode} onChange={(e) => setExplode(Number(e.target.value))} />
               <span className="mono">{Math.round(explode * 100)}%</span>
             </label>
             <label className="inl tool-slider" title="Longitudinal cutaway plane (peel from door to nose)">
-              ✂ Cutaway
+              Cutaway
               <input type="range" min="0.1" max="1" step="0.05" value={sliceX ?? 1} onChange={(e) => { const v = Number(e.target.value); setSliceX(v >= 0.99 ? null : v); }} />
               <span className="mono">{sliceX !== null ? `${Math.round(sliceX * 100)}%` : 'Full'}</span>
             </label>
             <button className={`btn sm ${blueprint ? 'accent-active' : ''}`} onClick={() => setBlueprint(!blueprint)} title="Toggle technical Prussian blueprint mode (B)">
-              📐 Blueprint
+              Blueprint
             </button>
             <button className={`btn sm ${showCoG ? 'accent-active' : ''}`} onClick={() => setShowCoG(!showCoG)} title="Toggle 3D Center of Gravity plumb-bob and target reticle">
-              ⚲ CoG
+              CoG
             </button>
           </>}
           <button className={`btn sm ${dockMode ? 'accent-active dock-active' : ''}`} onClick={() => setDockMode(!dockMode)} title="Toggle full-screen Tactile Dock HUD (D)">
-            ⛶ Dock HUD
+            Dock HUD
           </button>
           <button className="btn sm" onClick={() => setZoom((z) => Math.min(2.5, z * 1.2))} aria-label="Zoom in">＋</button>
           <button className="btn sm" onClick={() => setZoom((z) => Math.max(0.5, z / 1.2))} aria-label="Zoom out">－</button>
@@ -620,7 +620,7 @@ export function PlanStep(p: AppApi) {
 
           <div className="seq">
             <button className="btn sm" disabled={reduced || working.length < 2} title={reduced ? 'Reduced motion is on — use the slider' : 'Play loading sequence (Space)'}
-              onClick={() => { if (playing) setPlaying(false); else { setUpTo(0); setPlaying(true); } }}>{playing ? '❚❚ Pause' : '▶ Load sequence'}</button>
+              onClick={() => { if (playing) setPlaying(false); else { setUpTo(0); setPlaying(true); } }}>{playing ? 'Pause' : 'Play Sequence'}</button>
             <input type="range" min={0} max={working.length} value={upTo ?? working.length} aria-label="Loading step"
               onChange={(e) => { setPlaying(false); const v = Number(e.target.value); setUpTo(v >= working.length ? null : v); }} />
             <span className="mono">{upTo ?? working.length}/{working.length}</span>
@@ -639,7 +639,7 @@ export function PlanStep(p: AppApi) {
                   <span className="mono badge-sel">{selP.unitId}</span>
                   <b>{selU.label}</b>
                 </div>
-                <button className="btn sm ghost icon-btn" onClick={() => setSel(null)} title="Deselect (Esc)">✕</button>
+                <button className="btn sm ghost icon-btn" onClick={() => setSel(null)} title="Deselect (Esc)">Close</button>
               </div>
               <div className="canvas-hud-grid">
                 <div><span>Dimensions:</span> <b>{fmtMmDual(selP.dx)} × {fmtMmDual(selP.dy)} × {fmtMmDual(selP.dz)}</b></div>
@@ -651,7 +651,7 @@ export function PlanStep(p: AppApi) {
               <div className="canvas-hud-actions">
                 <button className="btn sm" disabled={!!readOnly} onClick={rotate} title="Rotate 90° (R)">⟳ Rotate (R)</button>
                 <button className="btn sm ghost" disabled={!!readOnly} onClick={dropToRest} title="Drop to bed or resting box">⤓ Drop to Rest</button>
-                <button className="btn sm danger ghost" disabled={!!readOnly} onClick={removeFromPlan} title="Remove unit from plan">✕ Remove</button>
+                <button className="btn sm danger ghost" disabled={!!readOnly} onClick={removeFromPlan} title="Remove unit from plan">Remove</button>
               </div>
             </div>
           )}
@@ -670,7 +670,7 @@ export function PlanStep(p: AppApi) {
           </div>
           <div className="search-box">
             <input type="text" className="txt" placeholder="Filter by Unit ID or label…" value={query} onChange={(e) => setQuery(e.target.value)} />
-            {query && <button className="btn sm ghost" onClick={() => setQuery('')}>✕</button>}
+            {query && <button className="btn sm ghost" onClick={() => setQuery('')}>Close</button>}
           </div>
           <div className="tablewrap short">
             <table className="grid slim" aria-label="Placements">
@@ -778,7 +778,7 @@ export function PlanStep(p: AppApi) {
         <div className="panel-h"><b>What was checked — and what was not</b><span>solver {result.solver.version} · seed {result.solver.seed} · {result.solver.attempts}/{result.solver.budget} attempts · {result.solver.ms} ms</span></div>
         <ul className="checks">
           {result.checks.map((c) => (
-            <li key={c.id} className={c.state}><span className="cs">{c.state === 'verified' ? '✓ checked' : c.state === 'not_modeled' ? '⚠ not modeled' : c.state === 'not_declared' ? '⚠ not declared' : '? unknown'}</span><b>{c.label}</b><span className="muted small"> — {c.note}</span></li>))}
+            <li key={c.id} className={c.state}><span className="cs">{c.state === 'verified' ? 'Checked' : c.state === 'not_modeled' ? 'Not modeled' : c.state === 'not_declared' ? 'Not declared' : 'Unknown'}</span><b>{c.label}</b><span className="muted small"> — {c.note}</span></li>))}
         </ul>
       </div>
       <div className="foot-actions"><button className="btn" onClick={() => p.go('decision')}>← Compare</button><button className="btn primary" onClick={() => p.go('versions')}>Next: save & export →</button></div>

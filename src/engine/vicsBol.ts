@@ -347,7 +347,7 @@ export function buildVicsBolHtml(plan: PlanFile, opts: VicsBolOptions = {}): str
 </head>
 <body>
   <div class="no-print">
-    <button class="btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+    <button class="btn" onclick="window.print()">Print / Save as PDF</button>
   </div>
 
   ${isFinal ? '' : `<div class="draft-banner"><b>DRAFT — NOT A VALID BILL OF LADING.</b> Outstanding items: ${readiness.blockers.map(e).join('; ')}.</div>`}

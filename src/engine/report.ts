@@ -276,7 +276,7 @@ th,td{border:1px solid var(--line);padding:6px 10px;text-align:left}th{backgroun
       <h1>Load Plan — ${esc(plan.scenario.name)}</h1>
       <p class="meta">Exported ${esc(plan.createdAt)} · Equipment: <b>${esc(eqProfile.name)}</b> · Arrangement: <b>${esc(plan.arrangementName)}</b></p>
     </div>
-    <button class="btn" onclick="window.print()">⎙ Print / Save PDF</button>
+    <button class="btn" onclick="window.print()">Print / Save PDF</button>
   </div>
 
   <div class="warn"><b>${esc(statusText)}.</b> ${esc(LIMITATIONS[0])}</div>
@@ -300,7 +300,7 @@ th,td{border:1px solid var(--line);padding:6px 10px;text-align:left}th{backgroun
       <div id="iso-ctrls" style="display:inline-flex;gap:6px">
         <button class="btn" onclick="rotate(-1)">⟲ Yaw Left</button>
         <button class="btn" onclick="rotate(1)">⟳ Yaw Right</button>
-        <button class="btn" id="btn-xray" onclick="toggleXray()">👁 X-Ray</button>
+        <button class="btn" id="btn-xray" onclick="toggleXray()">X-Ray</button>
       </div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
         <button class="btn" id="btn-play" onclick="togglePlay()">▶ Play</button>
@@ -384,7 +384,7 @@ function togglePlay() {
     document.getElementById('btn-play').innerText = '▶ Play';
   } else {
     if (curStep >= maxStep) setStep(1);
-    document.getElementById('btn-play').innerText = '❚❚ Pause';
+    document.getElementById('btn-play').innerText = 'Pause';
     playTimer = setInterval(() => {
       if (curStep >= maxStep) { togglePlay(); }
       else { setStep(curStep + 1); }
@@ -464,8 +464,8 @@ td.mono { font-family: ui-monospace, SFMono-Regular, monospace; }
 </head>
 <body>
 <div class="no-print-bar">
-  <span>📋 Print-Ready Work Order · Cargo Fit</span>
-  <button onclick="window.print()">🖨 Print Work Order</button>
+  <span>Print-Ready Work Order · Cargo Fit</span>
+  <button onclick="window.print()">Print Work Order</button>
 </div>
 
 <header class="header">
@@ -500,7 +500,7 @@ td.mono { font-family: ui-monospace, SFMono-Regular, monospace; }
   <div class="meta-card">
     <span>Weight Balance CoG</span>
     <b>${plan.metrics.cogXPct !== null ? `${fmtNum(plan.metrics.cogXPct, 0)}% of Wheelbase` : 'N/A'}</b>
-    <div style="font-size:9.5px;color:#555;margin-top:2px;">${(plan.metrics.cogXPct ?? 50) >= 45 && (plan.metrics.cogXPct ?? 50) <= 55 ? '✓ Balanced within safe envelope' : '⚠ Forward/Rear Bias'}</div>
+    <div style="font-size:9.5px;color:#555;margin-top:2px;">${(plan.metrics.cogXPct ?? 50) >= 45 && (plan.metrics.cogXPct ?? 50) <= 55 ? 'Balanced within safe envelope' : 'Forward/Rear Bias'}</div>
   </div>
 </div>
 
@@ -555,7 +555,7 @@ td.mono { font-family: ui-monospace, SFMono-Regular, monospace; }
       <div class="axle-row"><span>Trailer Tandem Reaction:</span> <b class="mono">${fmtKgDual(plan.metrics.axleEst.trailerKg)} (${plan.metrics.axleEst.trailerPct}% rating)</b></div>
       <div class="axle-row" style="border-top:1px dashed #ccc;padding-top:3px;margin-top:3px;">
         <span>Statutory Bridge Formula B (23 CFR § 658.17):</span>
-        <b>${plan.metrics.axleEst.bridgeFormulaCompliant ? '✓ COMPLIANT (within statutory axle-group allowance)' : '⚠ EXCEEDS inner bridge weight formula'}</b>
+        <b>${plan.metrics.axleEst.bridgeFormulaCompliant ? 'COMPLIANT (within statutory axle-group allowance)' : 'EXCEEDS inner bridge weight formula'}</b>
       </div>
     ` : '<p style="color:#777;margin:0;">Axle reactions unmodeled (weight incomplete or single-axle vehicle).</p>'}
   </div>

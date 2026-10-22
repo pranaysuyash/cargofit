@@ -7,6 +7,7 @@ import type { CostSource, EquipmentProfile } from '../engine/types';
 import type { AppApi } from './App';
 import { NumInput } from './common';
 import { equipmentPresets } from './samples';
+import { IconTruck, IconBox3d, IconExternalLink } from './icons';
 
 export function EquipmentStep(p: AppApi) {
   const { scenario, setScenario, issues, readOnly } = p;
@@ -77,7 +78,9 @@ export function EquipmentStep(p: AppApi) {
                   style={{ textDecoration: 'none', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                   title="Inspect 3D digital twin, isometric projection, and CAD blueprints in Product 04 Asset Studio"
                 >
-                  📐 3D Asset Studio (P04) ↗
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <IconTruck size={14} /> 3D Asset Studio (P04) <IconExternalLink size={12} />
+                  </span>
                 </a>
               </p>
               {!!(eqIssue(e.id, 'payload') || eqIssue(e.id, 'door')) && e.included && (
@@ -94,7 +97,7 @@ export function EquipmentStep(p: AppApi) {
                       <span className="small muted">
                         Front bulkhead (x=0) to rear door (x={Math.round(norm.L)}mm).
                         {norm.doorW !== null && norm.doorH !== null && (norm.doorW < norm.W || norm.doorH < norm.H)
-                          ? ` ⚠ Bottleneck: Door (${Math.round(norm.doorW)}×${Math.round(norm.doorH)}mm) is smaller than interior (${Math.round(norm.W)}×${Math.round(norm.H)}mm).`
+                          ? ` Warning: Door (${Math.round(norm.doorW)}×${Math.round(norm.doorH)}mm) is smaller than interior (${Math.round(norm.W)}×${Math.round(norm.H)}mm).`
                           : ' Full aperture door.'}
                       </span>
                     </div>
@@ -103,7 +106,9 @@ export function EquipmentStep(p: AppApi) {
               })()}
               <footer>
                 <button className={`btn sm ${inspectEqId === e.id ? 'primary' : 'ghost'}`} onClick={() => setInspectEqId(inspectEqId === e.id ? null : e.id)}>
-                  {inspectEqId === e.id ? 'Hide 3D Bay' : '👁 3D Bay Wireframe'}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <IconBox3d size={14} /> {inspectEqId === e.id ? 'Hide 3D Bay' : '3D Bay Wireframe'}
+                  </span>
                 </button>
                 <button className="btn sm ghost" disabled={disabled} onClick={() => setScenario((s) => ({ ...s, equipment: s.equipment.filter((x) => x.id !== e.id) }))}>Remove profile</button>
               </footer>

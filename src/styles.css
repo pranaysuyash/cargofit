@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light dark;
   --paper: oklch(0.972 0.008 85);
   --panel: oklch(0.995 0.003 85);
   --ink: oklch(0.25 0.03 255);
@@ -22,6 +23,30 @@
   --font: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 }
+
+:root[data-theme="dark"],
+[data-theme="dark"],
+body.dark {
+  --paper: #070b14;
+  --panel: #0d1527;
+  --ink: #f8fafc;
+  --ink-2: #cbd5e1;
+  --muted: #94a3b8;
+  --line: #1e293b;
+  --line-2: #334155;
+  --accent: #38bdf8;
+  --accent-ink: #7dd3fc;
+  --ok: #10b981;
+  --ok-bg: rgba(16, 185, 129, 0.15);
+  --no: #f43f5e;
+  --no-bg: rgba(244, 63, 94, 0.15);
+  --unk: #f59e0b;
+  --unk-bg: rgba(245, 158, 11, 0.15);
+  --inc: #818cf8;
+  --inc-bg: rgba(129, 140, 248, 0.15);
+  --rev: #fb923c;
+  --rev-bg: rgba(251, 146, 60, 0.15);
+}
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--paper); color: var(--ink); font: 14.5px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
 h1, h2, h3 { margin: 0; line-height: 1.15; letter-spacing: -0.02em; text-wrap: balance; }
@@ -31,6 +56,27 @@ a { color: inherit; }
 .muted { color: var(--muted); } .small { font-size: 12.5px; } .dim { color: var(--muted); }
 .ok-t { color: var(--ok); } .bad-t { color: var(--no); } .warn-t { color: var(--rev); }
 :focus-visible { outline: 3px solid color-mix(in oklch, var(--accent) 70%, white); outline-offset: 2px; border-radius: 4px; }
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  background: var(--accent);
+  color: white;
+  padding: 8px 16px;
+  font-weight: 700;
+  border-radius: 4px;
+  z-index: 99999;
+  text-decoration: none;
+  font-size: 13px;
+  transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+  top: 16px;
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
 
 /* ---------- controls ---------- */
 .btn { font: 600 13px var(--font); padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; transition: background .15s, border-color .15s, transform .08s; }

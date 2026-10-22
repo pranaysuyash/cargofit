@@ -119,9 +119,7 @@ export function SignaturePad({ title, onSave, onCancel }: SignaturePadProps) {
           <button
             onClick={onCancel}
             style={{ background: 'transparent', border: 'none', fontSize: 18, cursor: 'pointer', color: '#64748b' }}
-          >
-            ✕
-          </button>
+          >Close</button>
         </div>
 
         <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 12px 0' }}>

@@ -55,8 +55,8 @@ export function Landing(props: { onSample: (id: string) => void; onBlank: () => 
         <h2>Five honest outcomes, never a bare percentage</h2>
         <div className="grid5">
           {[
-            ['✓', 'Fits under modeled constraints', 'A complete arrangement exists and an independent validator confirmed bounds, overlap, orientation, support, payload and door.'],
-            ['✕', 'Proven not to fit', 'A sound bound trips: item larger than the interior, door too small, declared weight over payload, or volume over capacity.'],
+            ['FEASIBLE', 'Fits under modeled constraints', 'A complete arrangement exists and an independent validator confirmed bounds, overlap, orientation, support, payload and door.'],
+            ['INFEASIBLE', 'Proven not to fit', 'A sound bound trips: item larger than the interior, door too small, declared weight over payload, or volume over capacity.'],
             ['?', 'No plan found', 'The heuristic ran out of budget. That is not proof of impossibility, and the UI says so.'],
             ['…', 'Incomplete input', 'A missing dimension or unknown weight stops the claim. Unknown stays unknown — nothing is guessed.'],
             ['!', 'Needs physical review', 'Geometry fits, but a limit such as payload or door was never declared for this equipment.'],

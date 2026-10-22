@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { IconCamera, IconX, IconZap } from './icons';
 
 interface CameraScannerProps {
   targetUnitId: string;
@@ -130,13 +131,15 @@ export function CameraScanner({ targetUnitId, targetSkuLabel, onScan, onClose }:
             <span className="camera-lbl">SCANNING FOR DOCK TASK</span>
             <b>{targetUnitId} · {targetSkuLabel}</b>
           </div>
-          <button className="btn sm ghost" onClick={onClose}>✕ Close</button>
+          <button className="btn sm ghost" onClick={onClose}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconX size={14} /> Close</span>
+          </button>
         </div>
 
         <div className="camera-viewport">
           {error ? (
             <div className="camera-error-banner">
-              <p>📷 {error}</p>
+              <p style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><IconCamera size={16} /> {error}</p>
               <p className="small muted">You can still enter barcodes manually using the keyboard input field.</p>
             </div>
           ) : (
@@ -166,7 +169,7 @@ export function CameraScanner({ targetUnitId, targetSkuLabel, onScan, onClose }:
               onScan(targetUnitId);
             }}
           >
-            ⚡ Test Scan Target ID
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconZap size={14} /> Test Scan Target ID</span>
           </button>
         </div>
       </div>
