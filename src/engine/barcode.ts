@@ -7,12 +7,12 @@
 export interface BarcodeMatchResult {
   matched: boolean;
   code: string;
-  matchedBy: 'unit_id' | 'sku_label' | 'partial' | 'none';
+  matchedBy: 'unit_id' | 'sku_label' | 'partial' | 'barcode' | 'none';
   confidence: number;
 }
 
 /**
- * Normalizes barcode or QR code strings (strips whitespace, symbols, leading zeros).
+ * Legacy standalone matching normalizes case and scanner whitespace.
  */
 export function normalizeBarcode(raw: string): string {
   return raw.trim().toUpperCase().replace(/[\r\n\t]/g, '');
@@ -24,8 +24,13 @@ export function normalizeBarcode(raw: string): string {
 export function verifyBarcodeMatch(
   scannedCode: string,
   targetUnitId: string,
-  targetSkuLabel: string
+  targetSkuLabel: string,
+  declaredBarcode?: string,
 ): BarcodeMatchResult {
+  if (declaredBarcode !== undefined) {
+    const matched = scannedCode.replace(/[\r\n]+$/, '') === declaredBarcode;
+    return { matched, code: scannedCode, matchedBy: matched ? 'barcode' : 'none', confidence: matched ? 1 : 0 };
+  }
   const normScan = normalizeBarcode(scannedCode);
   const normId = normalizeBarcode(targetUnitId);
   const normLabel = normalizeBarcode(targetSkuLabel);

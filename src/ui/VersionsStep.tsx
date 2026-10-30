@@ -7,6 +7,7 @@ import type { BolLineDeclaration } from '../engine/vicsBol';
 import { SignaturePad } from './SignaturePad';
 import { buildFreightQuoteUrl } from '../engine/quoteBridge';
 import { isProductLicensed } from './SuiteDock';
+import { useShipmentSession } from '../suite/ShipmentSession';
 import {
   IconBox3d,
   IconFileText,
@@ -23,6 +24,7 @@ import type { AppApi } from './App';
 import { StatusBadge, download, slug } from './common';
 
 export function VersionsStep(p: AppApi) {
+  const shipmentSession = useShipmentSession();
   const { scenario, results, saved, readOnly } = p;
   const [note, setNote] = useState('');
   const [cmp, setCmp] = useState<{ id: string; rev: number } | null>(null);
@@ -44,7 +46,28 @@ export function VersionsStep(p: AppApi) {
   const makePlan = () => {
     if (!result) return null;
     const placements = (key && p.edits[key]) || result.arrangements[arrIdx].placements;
-    return buildPlanFile({ scenario, result, placements, arrangementName: result.arrangements[arrIdx].name, edited, inputHash: p.hash });
+    let activeTandemConfig: any = p.tandemConfig;
+    let activeNmfcSummary: any = p.nmfcSummary;
+    try {
+      if (!activeTandemConfig) {
+        const tRaw = localStorage.getItem('cargo_fit_active_tandem_config');
+        if (tRaw) activeTandemConfig = JSON.parse(tRaw);
+      }
+      if (!activeNmfcSummary) {
+        const nRaw = localStorage.getItem('cargo_fit_active_nmfc_summary');
+        if (nRaw) activeNmfcSummary = JSON.parse(nRaw);
+      }
+    } catch {}
+    return buildPlanFile({
+      scenario,
+      result,
+      placements,
+      arrangementName: result.arrangements[arrIdx].name,
+      edited,
+      inputHash: p.hash,
+      tandemConfig: activeTandemConfig,
+      nmfcSummary: activeNmfcSummary,
+    });
   };
   const exportAs = (kind: 'json' | 'csv' | 'html' | 'open' | 'interactive' | 'workorder' | 'gltf' | 'edi214' | 'vicsbol') => {
     if (!ready) { p.notify('warn', 'Plans are stale or still computing. Wait until “Plans up to date”, then export.'); return; }
@@ -61,8 +84,23 @@ export function VersionsStep(p: AppApi) {
       ok = download(`${base}.status.214.edi`, ediText, 'application/edi-x12');
     }
     if (kind === 'vicsbol') {
+      let activeTandemConfig: any = p.tandemConfig;
+      let activeNmfcSummary: any = p.nmfcSummary;
+      try {
+        if (!activeTandemConfig) {
+          const tRaw = localStorage.getItem('cargo_fit_active_tandem_config');
+          if (tRaw) activeTandemConfig = JSON.parse(tRaw);
+        }
+        if (!activeNmfcSummary) {
+          const nRaw = localStorage.getItem('cargo_fit_active_nmfc_summary');
+          if (nRaw) activeNmfcSummary = JSON.parse(nRaw);
+        }
+      } catch {}
+
       const bolHtml = buildVicsBolHtml(plan, {
         ...bol,
+        tandemConfig: activeTandemConfig,
+        nmfcSummary: activeNmfcSummary,
         lineDeclarations: bolLines,
         humanApproved: bolApproved,
         shipperSignatureDataUrl: shipperSig || undefined,
@@ -164,7 +202,7 @@ export function VersionsStep(p: AppApi) {
                     const plan = makePlan();
                     if (!plan) return;
                     if (isProductLicensed('product-02-freight-pricing')) {
-                      window.open(buildFreightQuoteUrl(plan), '_blank');
+                      window.open(shipmentSession?.shipment ? shipmentSession.productUrl('product-02-freight-pricing') : buildFreightQuoteUrl(plan), '_blank');
                     } else {
                       exportAs('json');
                       p.notify('warn', 'Pricing HUD is an add-on ($199/mo). Exported Open Logistics Load JSON for external ERP, or upgrade via Apps dock.');

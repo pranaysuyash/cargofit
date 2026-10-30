@@ -6,7 +6,7 @@
   "code": "P01",
   "version": "1.0.0",
   "port": 5173,
-  "icon": "📦",
+  "icon": "\ud83d\udce6",
   "description": "3D heuristic cargo packing, Federal Bridge Formula axle distribution, and securement compliance",
   "category": "optimization",
   "entitlementKey": "cargo_fit",
@@ -16,11 +16,28 @@
   },
   "bridges": {
     "consumes": [
-      { "from": "product-04-asset-studio", "protocol": "OLAS-v1", "action": "load_equipment" },
-      { "from": "product-05-fleet-telematics", "protocol": "TELEMATICS-v1", "action": "verify_axle_load" }
+      {
+        "from": "product-04-asset-studio",
+        "protocol": "OLAS-v1",
+        "action": "load_equipment"
+      },
+      {
+        "from": "product-05-fleet-telematics",
+        "protocol": "TELEMATICS-v1",
+        "action": "verify_axle_load"
+      }
     ],
     "produces": [
-      { "to": "product-02-freight-pricing", "protocol": "OLLP-v1", "action": "quote_load" }
+      {
+        "to": "product-02-freight-pricing",
+        "protocol": "OLLP-v1",
+        "action": "quote_load"
+      }
     ]
+  },
+  "pricingTier": {
+    "tierName": "Single Vehicle Pro",
+    "monthlyPriceUsd": 149,
+    "description": "3D heuristic cargo packing, Federal Bridge Formula axle distribution, and securement compliance"
   }
 }

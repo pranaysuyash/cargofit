@@ -1,3 +1,4 @@
+import productRegistry from '../suite/productRegistry.json';
 import React, { useState, useEffect } from 'react';
 import {
   ProductIcon,
@@ -42,104 +43,7 @@ export interface SubproductManifest {
   };
 }
 
-export const CANONICAL_PRODUCTS: SubproductManifest[] = [
-  {
-    id: 'product-01-cargo-fit',
-    name: 'Cargo Fit & 3D Load Optimization',
-    shortName: 'Cargo Fit',
-    code: 'P01',
-    port: 5173,
-    icon: 'P01',
-    description: '3D heuristic cargo packing, Federal Bridge Formula axle distribution, and securement compliance.',
-    category: 'Optimization',
-    routes: { dev: 'http://localhost:5173', cloud: 'https://cargofit.pages.dev' },
-    pricingTier: {
-      tierName: 'Single Vehicle Pro',
-      monthlyPriceUsd: 149,
-      description: 'Unlimited 3D load solves, optical camera scanner, and EDI/VICS BOL exports.',
-    },
-  },
-  {
-    id: 'product-02-freight-pricing',
-    name: 'Freight Pricing & Tactical Dispatch HUD',
-    shortName: 'Freight Pricing',
-    code: 'P02',
-    port: 5174,
-    icon: 'P02',
-    description: 'Carrier cost waterfall, EIA diesel index pegging, 3D digital twins, and broker rate confirmations.',
-    category: 'Pricing',
-    routes: { dev: 'http://localhost:5174', cloud: 'https://freightpricing.pages.dev' },
-    pricingTier: {
-      tierName: 'Tactical Dispatcher HUD',
-      monthlyPriceUsd: 199,
-      description: 'Real-time diesel index escalation, operating ratio speedometer, and instant PDF rate confirmations.',
-    },
-  },
-  {
-    id: 'product-03-hos-planner',
-    name: 'HOS Compliance & Interstate Corridor Legality Planner',
-    shortName: 'HOS Planner',
-    code: 'P03',
-    port: 5175,
-    icon: 'P03',
-    description: 'FMCSA Part 395 statutory hours of service engine, 24-hr ELD logbooks, and corridor simulations.',
-    category: 'Compliance',
-    routes: { dev: 'http://localhost:5175', cloud: 'https://hosdispatch.pages.dev' },
-    pricingTier: {
-      tierName: 'Safety & Compliance Suite',
-      monthlyPriceUsd: 129,
-      description: 'Statutory 11/14/70-hr engine, stepped ELD graph, and team transit simulation.',
-    },
-  },
-  {
-    id: 'product-04-asset-studio',
-    name: 'Fleet & Cargo Asset Studio',
-    shortName: 'Asset Studio',
-    code: 'P04',
-    port: 5176,
-    icon: 'P04',
-    description: 'Commercial vehicle & cargo packaging digital twin catalog, 3D WebGL, 2.5D Isometric, and 2D CAD blueprints.',
-    category: 'Asset Studio',
-    routes: { dev: 'http://localhost:5176', cloud: 'https://trucking-asset-studio.pages.dev' },
-    pricingTier: {
-      tierName: 'Digital Twin Studio',
-      monthlyPriceUsd: 249,
-      description: '20+ vehicle CAD models, 23 packaging twins, dynamic CG axle load shift, and Open Logistics Asset schema export.',
-    },
-  },
-  {
-    id: 'product-05-fleet-telematics',
-    name: 'Fleet Telematics & Real-Time Tracking HUD',
-    shortName: 'Telematics',
-    code: 'P05',
-    port: 5177,
-    icon: 'P05',
-    description: 'SAE J1939 CAN-bus telemetry stream, reefer cold chain data logger, corridor GPS geofencing, and DTC alert diagnostics.',
-    category: 'Telematics',
-    routes: { dev: 'http://localhost:5177', cloud: 'https://fleet-telematics.pages.dev' },
-    pricingTier: {
-      tierName: 'CAN-Bus Telematics Mesh',
-      monthlyPriceUsd: 299,
-      description: 'Real-time J1939 telemetry, Reefer excursions, live corridor tracking, and instant cross-product bridges.',
-    },
-  },
-  {
-    id: 'command-center-portal',
-    name: 'Unified Freight Command Center',
-    shortName: 'Command Center',
-    code: 'P00',
-    port: 5170,
-    icon: 'P00',
-    description: 'Top-level freight lifecycle stepper bringing all 5 subproducts under a unified single pane of glass.',
-    category: 'Orchestration',
-    routes: { dev: 'http://localhost:5170', cloud: 'https://trucking-command-center.pages.dev' },
-    pricingTier: {
-      tierName: 'Enterprise Command Seat',
-      monthlyPriceUsd: 499,
-      description: 'Complete 5-stage lifecycle stepper: Asset Studio → 3D Packing → Pricing → HOS → Live Telematics.',
-    },
-  },
-];
+export const CANONICAL_PRODUCTS = productRegistry as SubproductManifest[];
 
 export function resolveProductUrl(manifest: SubproductManifest): string {
   if (typeof window !== 'undefined') {
@@ -315,6 +219,8 @@ export const SuiteDock: React.FC<SuiteDockProps> = ({ currentProductId }) => {
     <>
       <div style={{
         display: 'flex',
+        flexWrap: 'wrap',
+        gap: '6px',
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '5px 16px',

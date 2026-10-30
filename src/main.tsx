@@ -1,20 +1,12 @@
+import { ShipmentWorkspace } from './suite/ShipmentWorkspace';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './ui/App';
 import './styles.css';
 
-// Initialize Theme Bridge (Sync with Command Center Portal or User Preference)
-if (typeof window !== 'undefined') {
-  const params = new URLSearchParams(window.location.search);
-  const theme = params.get('theme') || (window.parent !== window ? 'dark' : null);
-  if (theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-  }
-}
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ShipmentWorkspace productId="product-01-cargo-fit"><App /></ShipmentWorkspace>
   </StrictMode>,
 );
 

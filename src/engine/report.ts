@@ -39,6 +39,17 @@ export interface PlanFile {
   checks: ModeledCheck[];
   validation: { violations: Violation[]; validatedAt: string; passed: boolean };
   limitations: string[];
+  tandemConfig?: {
+    tandemHole: number;
+    fifthWheelPosition: number;
+    kpraFt?: number;
+    legal: boolean;
+  };
+  nmfcSummary?: {
+    primaryClass: string;
+    densityLbsCuFt: number;
+    dimWeightPenaltyLbs?: number;
+  };
 }
 
 export interface ExportInput {
@@ -49,6 +60,17 @@ export interface ExportInput {
   edited: boolean;
   inputHash: string;
   now?: Date;
+  tandemConfig?: {
+    tandemHole: number;
+    fifthWheelPosition: number;
+    kpraFt?: number;
+    legal: boolean;
+  };
+  nmfcSummary?: {
+    primaryClass: string;
+    densityLbsCuFt: number;
+    dimWeightPenaltyLbs?: number;
+  };
 }
 
 export function buildPlanFile(x: ExportInput): PlanFile {
@@ -68,6 +90,8 @@ export function buildPlanFile(x: ExportInput): PlanFile {
     checks: buildChecks(eq, metrics.unknownWeightUnits, true),
     validation: { violations, validatedAt: (x.now ?? new Date()).toISOString(), passed: violations.length === 0 },
     limitations: LIMITATIONS,
+    tandemConfig: x.tandemConfig,
+    nmfcSummary: x.nmfcSummary,
   };
 }
 

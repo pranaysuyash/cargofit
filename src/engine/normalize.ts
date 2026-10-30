@@ -11,6 +11,7 @@ const pos = (v: number | null) => v !== null && Number.isFinite(v) && v > 0;
 export function validateRows(rows: CargoRow[]): InputIssue[] {
   const issues: InputIssue[] = [];
   const seen = new Map<string, string>();
+  const physicalIds = new Set<string>();
   const add = (
     r: CargoRow, severity: InputIssue['severity'], field: string, code: string, message: string,
   ) => issues.push({ severity, scope: 'cargo', rowUid: r.uid, field, code, message });
@@ -19,10 +20,16 @@ export function validateRows(rows: CargoRow[]): InputIssue[] {
   for (const r of rows) {
     const lab = r.label.trim();
     if (!lab) add(r, 'error', 'label', 'LABEL_MISSING', 'Identifier is required.');
-    else {
+    else if (r.physicalUnitId === undefined) {
       const key = lab.toLowerCase();
       if (seen.has(key)) add(r, 'error', 'label', 'DUPLICATE_LABEL', `Duplicate identifier "${lab}" — merge the rows or rename one.`);
       else seen.set(key, r.uid);
+    }
+    if (r.physicalUnitId !== undefined) {
+      if (!r.physicalUnitId.trim()) add(r, 'error', 'physicalUnitId', 'PHYSICAL_ID_MISSING', 'A registered physical unit needs its original manifest identity.');
+      else if (physicalIds.has(r.physicalUnitId)) add(r, 'error', 'physicalUnitId', 'DUPLICATE_PHYSICAL_ID', 'Each registered physical unit must appear exactly once.');
+      physicalIds.add(r.physicalUnitId);
+      if (r.qty !== 1) add(r, 'error', 'qty', 'PHYSICAL_QTY_INVALID', 'A registered physical unit must have quantity 1. Register additional identities in the manifest workflow.');
     }
     if (r.qty === null || !Number.isInteger(r.qty) || r.qty < 1) {
       add(r, 'error', 'qty', 'QTY_INVALID', 'Quantity must be a whole number ≥ 1.');
@@ -76,7 +83,8 @@ export function expandUnits(rows: CargoRow[]): Unit[] {
     const w = r.weight !== null && r.weight > 0 ? toKg(r.weight, r.weightUnit) : null;
     for (let i = 1; i <= r.qty; i++) {
       out.push({
-        id: r.qty === 1 ? r.label.trim() : `${r.label.trim()}#${i}`,
+        id: r.physicalUnitId ?? (r.qty === 1 ? r.label.trim() : `${r.label.trim()}#${i}`),
+        ...(r.barcode !== undefined ? { barcode: r.barcode } : {}),
         rowUid: r.uid, label: r.label.trim(), dims, weightKg: w,
         rotation: r.rotation, stackable: r.stackable,
         stop: r.stop ?? null,

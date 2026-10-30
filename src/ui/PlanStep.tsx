@@ -9,6 +9,12 @@ import { evaluateBridgeCompliance } from '../engine/bridge';
 import { computeSecurementPlan } from '../engine/securement';
 import { verifyBarcodeMatch } from '../engine/barcode';
 import { CameraScanner } from './CameraScanner';
+import { TandemSliderModal } from './TandemSliderModal';
+import { simulateTandemSlide } from '../engine/tandemSlider';
+import { HazmatSegregationModal } from './HazmatSegregationModal';
+import { NmfcClassificationModal } from './NmfcClassificationModal';
+import { DunnageAirbagModal } from './DunnageAirbagModal';
+import { evaluateCargoVoidsAndDunnage } from '../engine/dunnageVoidCalculator';
 import type { Placement } from '../engine/types';
 import type { AppApi } from './App';
 import { NumInput, StatusBadge } from './common';
@@ -63,19 +69,89 @@ export function PlanStep(p: AppApi) {
   const placedIds = new Set(working.map((w) => w.unitId));
   const unplaced = units.filter((u) => !placedIds.has(u.id));
 
+  const activeStage = result?.multiStopStages && result.multiStopStages[activeStageIdx] ? result.multiStopStages[activeStageIdx] : null;
+
   const bridgeReport = useMemo(() => {
     if (!eq || !metrics) return null;
+    const effectiveWeightKg = activeStage && activeStage.stage > 0 ? activeStage.remainingWeightKg : metrics.loadedWeightKg;
+    const effectiveCogXMm = (activeStage && activeStage.stage > 0 && activeStage.cogX !== null) ? activeStage.cogX : (metrics.cogX ?? 0);
     return evaluateBridgeCompliance({
       equipmentLengthMm: eq.L,
-      cargoWeightKg: metrics.loadedWeightKg,
-      cargoCogXMm: metrics.cogX ?? 0,
+      cargoWeightKg: effectiveWeightKg,
+      cargoCogXMm: effectiveCogXMm,
     });
-  }, [eq, metrics]);
+  }, [eq, metrics, activeStage]);
 
   const securementPlan = useMemo(() => {
     if (!eq) return null;
     return computeSecurementPlan(units, working);
   }, [eq, units, working]);
+
+  const [isTandemModalOpen, setIsTandemModalOpen] = useState(false);
+  const [isHazmatModalOpen, setIsHazmatModalOpen] = useState(false);
+  const [isNmfcModalOpen, setIsNmfcModalOpen] = useState(false);
+  const [isDunnageModalOpen, setIsDunnageModalOpen] = useState(false);
+
+  const dunnageReport = useMemo(() => {
+    return evaluateCargoVoidsAndDunnage({
+      equipment: {
+        lengthMm: eq?.L ?? 16154,
+        widthMm: eq?.W ?? 2540,
+        heightMm: eq?.H ?? 2794,
+      },
+      placements: working.map((w) => {
+        const u = unitMap.get(w.unitId);
+        return {
+          unitId: w.unitId,
+          label: w.label || 'Unit',
+          xMm: w.x,
+          yMm: w.y,
+          zMm: w.z,
+          dxMm: w.dx,
+          dyMm: w.dy,
+          dzMm: w.dz,
+          weightKg: u?.weightKg ?? 500,
+        };
+      }),
+      deckFrictionMu: 0.35,
+    });
+  }, [eq, working, unitMap]);
+
+  const geometryInput = useMemo(() => {
+    const effectiveWeightKg = activeStage && activeStage.stage > 0 ? activeStage.remainingWeightKg : (metrics?.loadedWeightKg ?? 0);
+    const effectiveCogXMm = (activeStage && activeStage.stage > 0 && activeStage.cogX !== null) ? activeStage.cogX : (metrics?.cogX ?? 0);
+    return {
+      equipmentLengthMm: eq?.L ?? 16154,
+      cargoWeightKg: effectiveWeightKg,
+      cargoCogXMm: effectiveCogXMm,
+    };
+  }, [eq, metrics, activeStage]);
+
+  const hazmatItems = useMemo(() => {
+    return scenario.rows
+      .filter((r) => /haz|class\s*[1-9]|un\s*\d{4}|flamm|oxid|corros|toxic|acid|cyanide/i.test(r.label))
+      .map((r, i) => {
+        let classCode: any = '3';
+        if (/1\.[1-5]/i.test(r.label)) classCode = '1.1';
+        else if (/2\.3/i.test(r.label)) classCode = '2.3';
+        else if (/5\.1/i.test(r.label)) classCode = '5.1';
+        else if (/5\.2/i.test(r.label)) classCode = '5.2';
+        else if (/6\.1/i.test(r.label)) classCode = '6.1';
+        else if (/8|acid|corros/i.test(r.label)) classCode = '8';
+        else if (/cyanide/i.test(r.label)) classCode = '6.1';
+
+        const unMatch = r.label.match(/UN\s*(\d{4})/i);
+        return {
+          id: `HAZ-${i + 1}`,
+          description: r.label,
+          classCode,
+          unNumber: unMatch ? `UN${unMatch[1]}` : undefined,
+          isAcid: /acid/i.test(r.label),
+          isCyanide: /cyanide/i.test(r.label),
+          weightLbs: Math.round((r.weight ?? 500) * 2.20462),
+        };
+      });
+  }, [scenario.rows]);
 
   useEffect(() => { setUpTo(null); setSel(null); setPlaying(false); }, [key]);
   useEffect(() => {
@@ -97,7 +173,6 @@ export function PlanStep(p: AppApi) {
   const selP = working.find((w) => w.unitId === sel) ?? null;
   const selU = selP ? unitMap.get(selP.unitId) : undefined;
 
-  const activeStage = result?.multiStopStages && result.multiStopStages[activeStageIdx] ? result.multiStopStages[activeStageIdx] : null;
   const stagePlacements = useMemo(() => {
     if (!activeStage || activeStage.stage === 0) return working;
     return working.filter((w) => {
@@ -340,7 +415,7 @@ export function PlanStep(p: AppApi) {
         <div><span>Centroid (info)</span><b className="mono">{(activeStage && activeStage.stage > 0 ? activeStage.cogXPct : metrics.cogXPct) === null ? 'n/a' : `${fmtNum((activeStage && activeStage.stage > 0 ? activeStage.cogXPct! : metrics.cogXPct!), 0)}% of length`}</b></div>
       </div>
 
-      {(bridgeReport || securementPlan) && (
+      {(bridgeReport || securementPlan || hazmatItems.length > 0) && (
         <div className="arr-gallery compliance-strip" role="region" aria-label="Statutory compliance and tie-down guidance">
           <div className="compliance-row">
             {bridgeReport && (
@@ -353,6 +428,15 @@ export function PlanStep(p: AppApi) {
                   GVW: {bridgeReport.overallGvwLbs.toLocaleString()} / {bridgeReport.maxLegalGvwLbs.toLocaleString()} lbs
                   {bridgeReport.kpraFt !== null && ` · KPRA: ${bridgeReport.kpraFt.toFixed(1)}ft (${bridgeReport.kpraCompliant ? 'CA OK' : 'CA Violation'})`}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setIsTandemModalOpen(true)}
+                  className="btn sm"
+                  style={{ marginLeft: 6, fontWeight: 700 }}
+                  aria-label="Adjust Trailer Tandem and Fifth Wheel Pins"
+                >
+                  Adjust Pins ⚙️
+                </button>
               </div>
             )}
             {securementPlan && (
@@ -366,6 +450,42 @@ export function PlanStep(p: AppApi) {
                 </span>
               </div>
             )}
+            <div className="compliance-cell">
+              <span className="arr-lbl">HazMat 49 CFR § 177:</span>
+              <button
+                type="button"
+                onClick={() => setIsHazmatModalOpen(true)}
+                className={`chip ${hazmatItems.length > 0 ? 'warn' : 'ok'}`}
+                style={{ cursor: 'pointer', border: 'none', fontWeight: 700 }}
+                aria-label="Open Hazardous Materials Segregation Table"
+              >
+                {hazmatItems.length > 0 ? `⚠️ ${hazmatItems.length} Hazmat Item(s)` : '✓ Non-Hazardous'}
+              </button>
+            </div>
+            <div className="compliance-cell">
+              <span className="arr-lbl">NMFC Density &amp; LTL Class:</span>
+              <button
+                type="button"
+                onClick={() => setIsNmfcModalOpen(true)}
+                className="chip ok"
+                style={{ cursor: 'pointer', border: 'none', fontWeight: 700 }}
+                aria-label="Audit NMFC Freight Density and LTL Class"
+              >
+                Class Advisor 📊
+              </button>
+            </div>
+            <div className="compliance-cell">
+              <span className="arr-lbl">49 CFR § 393 Voids:</span>
+              <button
+                type="button"
+                onClick={() => setIsDunnageModalOpen(true)}
+                className={`chip ${dunnageReport.statutoryCompliant ? 'ok' : 'warn'}`}
+                style={{ cursor: 'pointer', border: 'none', fontWeight: 700 }}
+                aria-label="Audit 49 CFR § 393.106 Cargo Voids and Dunnage Airbags"
+              >
+                {dunnageReport.statutoryCompliant ? '✓ Void Free' : `⚠️ ${dunnageReport.unsecuredVoidsCount} Airbag(s) Req`}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -448,7 +568,7 @@ export function PlanStep(p: AppApi) {
                         targetSkuLabel={activeStepUnit.label}
                         onClose={() => setShowCamera(false)}
                         onScan={(scannedCode) => {
-                          const res = verifyBarcodeMatch(scannedCode, activeStepUnit.unitId, activeStepUnit.label);
+                          const res = verifyBarcodeMatch(scannedCode, activeStepUnit.unitId, activeStepUnit.label, activeStepUnitInfo?.barcode);
                           if (res.matched) {
                             setScanStatus({ ok: true, msg: `Camera tag verified: ${activeStepUnit.unitId}` });
                             const next = currentStepNum + 1;
@@ -469,7 +589,7 @@ export function PlanStep(p: AppApi) {
                         onSubmit={(e) => {
                           e.preventDefault();
                           if (barcodeInput.trim()) {
-                            const res = verifyBarcodeMatch(barcodeInput, activeStepUnit.unitId, activeStepUnit.label);
+                            const res = verifyBarcodeMatch(barcodeInput, activeStepUnit.unitId, activeStepUnit.label, activeStepUnitInfo?.barcode);
                             if (res.matched) {
                               setScanStatus({ ok: true, msg: `Tag match: ${activeStepUnit.unitId} verified` });
                               const next = currentStepNum + 1;
@@ -782,6 +902,51 @@ export function PlanStep(p: AppApi) {
         </ul>
       </div>
       <div className="foot-actions"><button className="btn" onClick={() => p.go('decision')}>← Compare</button><button className="btn primary" onClick={() => p.go('versions')}>Next: save & export →</button></div>
+
+      <TandemSliderModal
+        geometryInput={geometryInput}
+        isOpen={isTandemModalOpen}
+        onClose={() => setIsTandemModalOpen(false)}
+        onApplyConfig={(cfg) => {
+          const res = simulateTandemSlide(geometryInput, cfg);
+          p.setTandemConfig({
+            tandemHole: cfg.tandemHole,
+            fifthWheelPosition: cfg.fifthWheelPosition,
+            kpraFt: res.kpraFt,
+            legal: res.allAxlesLegal,
+          });
+          p.notify('ok', `Applied Tandem Pin Hole #${cfg.tandemHole} (KPRA: ${res.kpraFt}ft, ${res.allAxlesLegal ? 'Legal' : 'Requires adjustment'}).`);
+        }}
+      />
+      <HazmatSegregationModal
+        hazmatItems={hazmatItems}
+        isOpen={isHazmatModalOpen}
+        onClose={() => setIsHazmatModalOpen(false)}
+      />
+      <NmfcClassificationModal
+        isOpen={isNmfcModalOpen}
+        onClose={() => setIsNmfcModalOpen(false)}
+        initialWeightLbs={Math.round((metrics?.loadedWeightKg ?? 8000) * 2.20462)}
+        initialVolumeCuFt={Math.round(((eq?.L ?? 16000) * (eq?.W ?? 2600) * (eq?.H ?? 2800) * (metrics?.occupiedVolumePct ?? 50) / 100) / 28316846.592)}
+        onApplyClassification={(summary) => {
+          p.setNmfcSummary({
+            primaryClass: summary.primaryClass,
+            densityLbsCuFt: summary.densityLbsCuFt,
+            dimWeightPenaltyLbs: summary.dimWeightPenaltyLbs,
+          });
+          p.notify('ok', `Certified NMFC Class ${summary.primaryClass} (${summary.densityLbsCuFt.toFixed(1)} lbs/cu ft) bound to manifest.`);
+        }}
+      />
+      <DunnageAirbagModal
+        isOpen={isDunnageModalOpen}
+        onClose={() => setIsDunnageModalOpen(false)}
+        report={dunnageReport}
+      />
+      <DunnageAirbagModal
+        isOpen={isDunnageModalOpen}
+        onClose={() => setIsDunnageModalOpen(false)}
+        report={dunnageReport}
+      />
     </section>
   );
 }

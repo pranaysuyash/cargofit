@@ -163,4 +163,27 @@ describe('VICS Standard Bill of Lading (BOL) Generator', () => {
     expect(html).toContain('[X] Driver Load &amp; Count');
     expect(html).toContain('UN1993 Flammable Liquids');
   });
+
+  it('embeds verified tandem bogie pin and NMFC classification details into the equipment bar', () => {
+    const html = buildVicsBolHtml(mockPlan, {
+      ...fullOpts,
+      tandemConfig: {
+        tandemHole: 6,
+        fifthWheelPosition: 0,
+        kpraFt: 39.8,
+        legal: true,
+      },
+      nmfcSummary: {
+        primaryClass: '70',
+        densityLbsCuFt: 14.5,
+        dimWeightPenaltyLbs: 250,
+      },
+    });
+    expect(html).toContain('Tandem Bogie Pin');
+    expect(html).toContain('Hole #6');
+    expect(html).toContain('KPRA: 39.8ft (CA Legal)');
+    expect(html).toContain('NMFC Classification');
+    expect(html).toContain('Class 70 (14.5 lbs/cu ft)');
+    expect(html).toContain('DIM Penalty: +250 lbs');
+  });
 });

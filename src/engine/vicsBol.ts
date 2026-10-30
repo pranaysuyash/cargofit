@@ -49,6 +49,19 @@ export interface VicsBolOptions {
   shipperSignatureDataUrl?: string;
   driverSignatureDataUrl?: string;
   emergencyPhone?: string;
+  /** Verified Tandem Bogie Pin slider configuration and California STAA KPRA. */
+  tandemConfig?: {
+    tandemHole: number;
+    fifthWheelPosition: number;
+    kpraFt?: number;
+    legal: boolean;
+  };
+  /** Certified NMFC Freight Density Classification and DIM Weight. */
+  nmfcSummary?: {
+    primaryClass: string;
+    densityLbsCuFt: number;
+    dimWeightPenaltyLbs?: number;
+  };
   /** Per-label operator declarations (NMFC, class, package type, hazmat confirmation). */
   lineDeclarations?: Record<string, BolLineDeclaration>;
   /** Explicit human approval to issue this as a Bill of Lading (not a draft). */
@@ -409,6 +422,8 @@ export function buildVicsBolHtml(plan: PlanFile, opts: VicsBolOptions = {}): str
       <div class="carrier-cell"><b>Equipment Spec</b> ${e(eqName)}</div>
       <div class="carrier-cell"><b>Total Handling Units</b> ${totalLoadedPieces} Handling Unit(s)</div>
       <div class="carrier-cell"><b>Total Gross Weight</b> ${e(totalWeightText)}</div>
+      ${opts.tandemConfig ? `<div class="carrier-cell"><b>Tandem Bogie Pin</b> Hole #${opts.tandemConfig.tandemHole}${opts.tandemConfig.kpraFt ? ` · KPRA: ${opts.tandemConfig.kpraFt.toFixed(1)}ft (${opts.tandemConfig.legal ? 'CA Legal' : 'CA Non-Compliant'})` : ''}</div>` : ''}
+      ${opts.nmfcSummary ? `<div class="carrier-cell"><b>NMFC Classification</b> Class ${e(opts.nmfcSummary.primaryClass)} (${opts.nmfcSummary.densityLbsCuFt.toFixed(1)} lbs/cu ft)${opts.nmfcSummary.dimWeightPenaltyLbs ? ` · DIM Penalty: +${opts.nmfcSummary.dimWeightPenaltyLbs.toLocaleString()} lbs` : ''}</div>` : ''}
     </div>
 
     <!-- Commodities Table -->

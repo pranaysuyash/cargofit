@@ -1,0 +1,415 @@
+[
+  {
+    "$schema": "https://trucking.platform.io/schemas/subproduct-manifest-v1.json",
+    "id": "command-center-portal",
+    "name": "Unified Freight Command Center Portal",
+    "shortName": "Command Center",
+    "code": "PORTAL",
+    "version": "1.0.0",
+    "port": 5170,
+    "icon": "PORTAL",
+    "description": "Unified executive command portal orchestrating the end-to-end commercial freight lifecycle across all 5 sovereign subproducts",
+    "category": "portal",
+    "entitlementKey": "command_center",
+    "routes": {
+      "dev": "http://localhost:5170",
+      "cloud": "https://trucking-command-center.pages.dev"
+    },
+    "bridges": {
+      "orchestrates": [
+        {
+          "product": "product-01-cargo-fit",
+          "port": 5173,
+          "stage": "cargo_fit"
+        },
+        {
+          "product": "product-02-freight-pricing",
+          "port": 5174,
+          "stage": "pricing_hud"
+        },
+        {
+          "product": "product-03-hos-planner",
+          "port": 5175,
+          "stage": "hos_planning"
+        },
+        {
+          "product": "product-04-asset-studio",
+          "port": 5176,
+          "stage": "asset_studio"
+        },
+        {
+          "product": "product-05-fleet-telematics",
+          "port": 5177,
+          "stage": "fleet_telematics"
+        }
+      ]
+    },
+    "pricingTier": {
+      "tierName": "Enterprise Command Seat",
+      "monthlyPriceUsd": 499,
+      "description": "Unified executive command portal orchestrating the end-to-end commercial freight lifecycle across all 5 sovereign subproducts"
+    }
+  },
+  {
+    "$schema": "https://trucking.platform.io/schemas/subproduct-manifest-v1.json",
+    "id": "product-01-cargo-fit",
+    "name": "Cargo Fit & 3D Load Optimization",
+    "shortName": "Cargo Fit",
+    "code": "P01",
+    "version": "1.0.0",
+    "port": 5173,
+    "icon": "P01",
+    "description": "3D heuristic cargo packing, Federal Bridge Formula axle distribution, and securement compliance",
+    "category": "optimization",
+    "entitlementKey": "cargo_fit",
+    "routes": {
+      "dev": "http://localhost:5173",
+      "cloud": "https://cargofit.pages.dev"
+    },
+    "bridges": {
+      "consumes": [
+        {
+          "from": "product-04-asset-studio",
+          "protocol": "OLAS-v1",
+          "action": "load_equipment"
+        },
+        {
+          "from": "product-05-fleet-telematics",
+          "protocol": "TELEMATICS-v1",
+          "action": "verify_axle_load"
+        }
+      ],
+      "produces": [
+        {
+          "to": "product-02-freight-pricing",
+          "protocol": "OLLP-v1",
+          "action": "quote_load"
+        }
+      ]
+    },
+    "pricingTier": {
+      "tierName": "Single Vehicle Pro",
+      "monthlyPriceUsd": 149,
+      "description": "3D heuristic cargo packing, Federal Bridge Formula axle distribution, and securement compliance"
+    }
+  },
+  {
+    "$schema": "https://trucking.platform.io/schemas/subproduct-manifest-v1.json",
+    "id": "product-02-freight-pricing",
+    "name": "Freight Pricing & Tactical Dispatch HUD",
+    "shortName": "Freight Pricing",
+    "code": "P02",
+    "version": "1.0.0",
+    "port": 5174,
+    "icon": "P02",
+    "description": "Carrier cost waterfall, EIA diesel index pegging, 3D digital twins, and broker rate confirmations",
+    "category": "pricing",
+    "entitlementKey": "freight_pricing",
+    "routes": {
+      "dev": "http://localhost:5174",
+      "cloud": "https://freightpricing.pages.dev"
+    },
+    "bridges": {
+      "consumes": [
+        {
+          "from": "product-01-cargo-fit",
+          "protocol": "OLLP-v1",
+          "action": "ingest_load_quote"
+        },
+        {
+          "from": "product-04-asset-studio",
+          "protocol": "OLAS-v1",
+          "action": "ingest_vehicle_specs"
+        },
+        {
+          "from": "product-05-fleet-telematics",
+          "protocol": "TELEMATICS-v1",
+          "action": "ingest_actual_fuel"
+        }
+      ],
+      "produces": [
+        {
+          "to": "product-03-hos-planner",
+          "protocol": "OLRI-v1",
+          "action": "dispatch_corridor"
+        }
+      ]
+    },
+    "pricingTier": {
+      "tierName": "Dispatcher HUD",
+      "monthlyPriceUsd": 199,
+      "description": "Carrier cost waterfall, EIA diesel index pegging, 3D digital twins, and broker rate confirmations"
+    }
+  },
+  {
+    "$schema": "https://trucking.platform.io/schemas/subproduct-manifest-v1.json",
+    "id": "product-03-hos-planner",
+    "name": "HOS Compliance & Interstate Corridor Legality Planner",
+    "shortName": "HOS Planner",
+    "code": "P03",
+    "version": "1.0.0",
+    "port": 5175,
+    "icon": "P03",
+    "description": "FMCSA Part 395 statutory hours of service engine, 24-hr ELD logbooks, and corridor simulations",
+    "category": "compliance",
+    "entitlementKey": "hos_planner",
+    "routes": {
+      "dev": "http://localhost:5175",
+      "cloud": "https://hosdispatch.pages.dev"
+    },
+    "bridges": {
+      "consumes": [
+        {
+          "from": "product-04-asset-studio",
+          "protocol": "OLAS-v1",
+          "action": "ingest_vehicle_range"
+        },
+        {
+          "from": "product-05-fleet-telematics",
+          "protocol": "TELEMATICS-v1",
+          "action": "ingest_driver_duty_state"
+        }
+      ],
+      "produces": [
+        {
+          "to": "product-05-fleet-telematics",
+          "protocol": "TELEMATICS-v1",
+          "action": "verify_hos_limits"
+        }
+      ]
+    },
+    "pricingTier": {
+      "tierName": "Safety & Compliance Suite",
+      "monthlyPriceUsd": 129,
+      "description": "FMCSA Part 395 statutory hours of service engine, 24-hr ELD logbooks, and corridor simulations"
+    }
+  },
+  {
+    "$schema": "https://trucking.platform.io/schemas/subproduct-manifest-v1.json",
+    "id": "product-04-asset-studio",
+    "name": "Fleet & Cargo Asset Studio",
+    "shortName": "Asset Studio",
+    "code": "P04",
+    "version": "1.0.0",
+    "port": 5176,
+    "icon": "P04",
+    "description": "Commercial vehicle & cargo packaging digital twin catalog, 3D WebGL, 2.5D Isometric, 2D CAD blueprints, and temporal dynamics",
+    "category": "assets",
+    "entitlementKey": "asset_studio",
+    "routes": {
+      "dev": "http://localhost:5176",
+      "cloud": "https://fleetstudio.pages.dev"
+    },
+    "bridges": {
+      "consumes": [
+        {
+          "from": "product-05-fleet-telematics",
+          "protocol": "TELEMATICS-v1",
+          "action": "link_twin_telemetry"
+        }
+      ],
+      "produces": [
+        {
+          "to": "product-01-cargo-fit",
+          "protocol": "OLAS-v1",
+          "action": "bridge_equipment_dims"
+        },
+        {
+          "to": "product-02-freight-pricing",
+          "protocol": "OLAS-v1",
+          "action": "bridge_carrier_specs"
+        },
+        {
+          "to": "product-03-hos-planner",
+          "protocol": "OLAS-v1",
+          "action": "bridge_range_speed"
+        }
+      ]
+    },
+    "pricingTier": {
+      "tierName": "Digital Twin Studio",
+      "monthlyPriceUsd": 249,
+      "description": "Commercial vehicle & cargo packaging digital twin catalog, 3D WebGL, 2.5D Isometric, 2D CAD blueprints, and temporal dynamics"
+    }
+  },
+  {
+    "$schema": "https://trucking.platform.io/schemas/subproduct-manifest-v1.json",
+    "id": "product-05-fleet-telematics",
+    "name": "Fleet Telematics & Real-Time Tracking HUD",
+    "shortName": "Fleet Telematics",
+    "code": "P05",
+    "version": "1.0.0",
+    "port": 5177,
+    "icon": "P05",
+    "description": "SAE J1939 CAN bus OBD-II telemetry, cold-chain reefer thermal logging, GPS interstate corridor waypoints, and DTC safety diagnostics",
+    "category": "telematics",
+    "entitlementKey": "fleet_telematics",
+    "routes": {
+      "dev": "http://localhost:5177",
+      "cloud": "https://fleettelematics.pages.dev"
+    },
+    "bridges": {
+      "consumes": [
+        {
+          "from": "product-01-cargo-fit",
+          "protocol": "OLLP-v1",
+          "action": "ingest_manifest_weights"
+        },
+        {
+          "from": "product-03-hos-planner",
+          "protocol": "HOS-v1",
+          "action": "sync_driver_duty_clock"
+        },
+        {
+          "from": "product-04-asset-studio",
+          "protocol": "OLAS-v1",
+          "action": "link_digital_twin"
+        }
+      ],
+      "produces": [
+        {
+          "to": "product-01-cargo-fit",
+          "protocol": "TELEMATICS-v1",
+          "action": "verify_axle_load"
+        },
+        {
+          "to": "product-02-freight-pricing",
+          "protocol": "TELEMATICS-v1",
+          "action": "feed_actual_mpg"
+        },
+        {
+          "to": "product-03-hos-planner",
+          "protocol": "TELEMATICS-v1",
+          "action": "feed_live_motion"
+        },
+        {
+          "to": "product-04-asset-studio",
+          "protocol": "TELEMATICS-v1",
+          "action": "link_twin_telemetry"
+        }
+      ]
+    },
+    "pricingTier": {
+      "tierName": "CAN-Bus Telematics Mesh",
+      "monthlyPriceUsd": 299,
+      "description": "SAE J1939 CAN bus OBD-II telemetry, cold-chain reefer thermal logging, GPS interstate corridor waypoints, and DTC safety diagnostics"
+    }
+  },
+  {
+    "$schema": "https://trucking.platform.io/schemas/subproduct-manifest-v1.json",
+    "id": "product-06-warehouse-space-flow",
+    "name": "Warehouse Space & Flow Planner",
+    "shortName": "Warehouse Space",
+    "code": "P06",
+    "version": "1.0.0",
+    "port": 5178,
+    "icon": "P06",
+    "description": "Multi-constraint spatial operations, dual-role moveable container tracking, inbound putaway allocation, and GS1 EPCIS scan verification.",
+    "category": "operations",
+    "entitlementKey": "warehouse_space_flow",
+    "routes": {
+      "dev": "http://localhost:5178",
+      "cloud": "https://warehouseflow.pages.dev"
+    },
+    "pricingTier": {
+      "tierName": "Spatial Operations Pro",
+      "monthlyPriceUsd": 219,
+      "description": "Multi-facility 2D/3D layout modeling, constraint-aware inbound putaway optimizer, dual-role container tracking, and GS1 EPCIS audit streams."
+    },
+    "bridges": {
+      "consumes": [
+        {
+          "from": "product-01-cargo-fit",
+          "protocol": "OLLP-v1",
+          "action": "import_inbound_manifest"
+        },
+        {
+          "from": "product-04-asset-studio",
+          "protocol": "OLAS-v1",
+          "action": "load_packaging_twins"
+        }
+      ],
+      "produces": [
+        {
+          "to": "command-center-portal",
+          "protocol": "OWSP-v1",
+          "action": "stream_capacity_telemetry"
+        }
+      ]
+    }
+  },
+  {
+    "$schema": "https://trucking.platform.io/schemas/subproduct-manifest-v1.json",
+    "id": "product-07-yard-dock",
+    "name": "Yard & Dock Management",
+    "shortName": "Yard & Dock",
+    "code": "P07",
+    "version": "1.0.0",
+    "port": 5179,
+    "icon": "P07",
+    "description": "Yard & Dock Management for commercial freight and logistics operations.",
+    "category": "operations",
+    "entitlementKey": "yard_dock",
+    "routes": {
+      "dev": "http://localhost:5179",
+      "cloud": "https://yarddock.pages.dev"
+    },
+    "bridges": {
+      "consumes": [],
+      "produces": []
+    },
+    "pricingTier": {
+      "tierName": "Yard Master Pro",
+      "monthlyPriceUsd": 279,
+      "description": "Yard & Dock Management for commercial freight and logistics operations."
+    }
+  },
+  {
+    "$schema": "https://trucking.platform.io/schemas/subproduct-manifest-v1.json",
+    "id": "product-08-carrier-trust",
+    "name": "Carrier Trust & Anti-Fraud Shield",
+    "shortName": "Carrier Trust",
+    "code": "P08",
+    "version": "1.0.0",
+    "port": 5180,
+    "icon": "P08",
+    "description": "FMCSA SMS BASIC percentiles, Certificate of Insurance (COI) verification, and automated Carrier Onboarding & Do Not Dispatch (DND) fraud lockout engine.",
+    "category": "Safety & Compliance",
+    "entitlementKey": "carrier_trust",
+    "routes": {
+      "dev": "http://localhost:5180",
+      "cloud": "https://carriertrust.pages.dev"
+    },
+    "pricingTier": {
+      "tierName": "Safety & Compliance Pro",
+      "monthlyPriceUsd": 149,
+      "description": "FMCSA SMS live percentile monitoring, COI expiration alarms, chameleon carrier fraud radar, and automated DND lockout gating."
+    },
+    "bridges": {
+      "consumes": [
+        {
+          "from": "command-center-portal",
+          "protocol": "OSAFE-v1",
+          "action": "audit_carrier_assignment"
+        }
+      ],
+      "produces": [
+        {
+          "to": "product-02-freight-pricing",
+          "protocol": "OSAFE-v1",
+          "action": "verify_rate_con_carrier"
+        },
+        {
+          "to": "product-03-hos-planner",
+          "protocol": "OSAFE-v1",
+          "action": "validate_driver_carrier_standing"
+        },
+        {
+          "to": "command-center-portal",
+          "protocol": "OSAFE-v1",
+          "action": "gate_dispatch_clearance"
+        }
+      ]
+    }
+  }
+]

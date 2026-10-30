@@ -18,12 +18,12 @@ export const blankEquipment = (): EquipmentProfile => ({
   costSource: 'none', source: 'User-entered', included: true,
 });
 
-/** Stable FNV-1a hash of everything that influences a solve (uids excluded from order sensitivity). */
+/** Stable FNV-1a hash of solver inputs, row identity and declared constraints. */
 export function scenarioHash(s: Scenario): string {
   const payload = JSON.stringify({
-    r: s.rows.map((r) => [r.uid, r.label, r.qty, r.length, r.width, r.height, r.dimUnit, r.weight, r.weightUnit, r.rotation, r.stackable]),
+    r: s.rows.map((r) => [r.uid, r.label, r.qty, r.length, r.width, r.height, r.dimUnit, r.weight, r.weightUnit, r.rotation, r.stackable, r.physicalUnitId, r.barcode, r.stop]),
     e: s.equipment.filter((e) => e.included).map((e) => [e.id, e.name, e.length, e.width, e.height, e.unit, e.doorWidth, e.doorHeight, e.payload, e.massUnit, e.cost, e.costSource]),
-    s: [s.settings.seed, s.settings.maxAttempts, s.settings.minSupportPct],
+    s: [s.settings.seed, s.settings.maxAttempts, s.settings.maxMs, s.settings.minSupportPct],
   });
   let h = 0x811c9dc5;
   for (let i = 0; i < payload.length; i++) {
@@ -74,7 +74,7 @@ export function diffRows(before: CargoRow[], after: CargoRow[]): RowChange[] {
   for (const r of after) {
     const o = b.get(r.uid);
     if (!o) { out.push({ uid: r.uid, label: r.label, kind: 'added', fields: [] }); continue; }
-    const fields = (['label', 'qty', 'length', 'width', 'height', 'dimUnit', 'weight', 'weightUnit', 'rotation', 'stackable'] as const)
+    const fields = (['label', 'qty', 'length', 'width', 'height', 'dimUnit', 'weight', 'weightUnit', 'rotation', 'stackable', 'physicalUnitId', 'barcode', 'stop'] as const)
       .filter((f) => o[f] !== r[f]);
     if (fields.length) out.push({ uid: r.uid, label: r.label, kind: 'changed', fields });
   }

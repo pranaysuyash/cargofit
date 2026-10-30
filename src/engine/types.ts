@@ -12,6 +12,10 @@ export type RotationRule = 'fixed' | 'upright' | 'any';
 /** A user-editable cargo row. `null` numeric = missing/unparseable (never invented). */
 export interface CargoRow {
   uid: string;
+  /** Stable manifest identity when this row represents one registered physical unit. */
+  physicalUnitId?: string;
+  /** Original scan identity, retained independently of the editable description. */
+  barcode?: string;
   label: string;
   qty: number | null;
   length: number | null;
@@ -81,6 +85,7 @@ export interface InputIssue {
 /** One physical unit after qty expansion, normalized to mm / kg. */
 export interface Unit {
   id: string;
+  barcode?: string;
   rowUid: string;
   label: string;
   dims: [number, number, number];

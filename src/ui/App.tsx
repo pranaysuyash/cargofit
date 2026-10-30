@@ -15,6 +15,11 @@ import { blankScenario, sampleScenario, equipmentPresets } from './samples';
 import { useSolver } from './useSolver';
 import { SuiteDock } from './SuiteDock';
 import { platformBus } from '../engine/platformBus';
+import { useShipmentContext } from '../suite/useShipmentContext';
+import { scenarioForShipment, unitsForScenario, resultForPlan } from '../engine/shipmentAdapter';
+import { useShipmentSession } from '../suite/ShipmentSession';
+import type { Shipment } from '../suite/types';
+import { StructuredValue } from '../suite/ShipmentInspector';
 
 export type StepId = 'cargo' | 'equipment' | 'decision' | 'plan' | 'versions';
 export const STEPS: { id: StepId; n: string; label: string; hint: string }[] = [
@@ -49,36 +54,40 @@ export function App() {
   const [scenario, setScenario] = useState<Scenario>(() => {
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
-      if (p.get('source') === 'asset_studio_p04') {
-        const eqName = p.get('eqName') || 'Asset Studio Vehicle';
-        const eqL = Number(p.get('eqL')) || 16000;
+      const src = p.get('source');
+      if (src === 'asset_studio_p04' || src === 'command_center_portal') {
+        const eqName = p.get('eqName') || (p.get('vehicleId') ? p.get('vehicleId')! : 'Commercial Trailer');
+        const eqL = p.get('eqL') ? Number(p.get('eqL')) : (p.get('lengthFt') ? Math.round(Number(p.get('lengthFt')) * 304.8) : 16000);
         const eqW = Number(p.get('eqW')) || 2540;
         const eqH = Number(p.get('eqH')) || 2794;
-        const eqPayloadKg = Number(p.get('eqPayloadKg')) || 20400;
+        const doorW = p.get('doorW') ? Number(p.get('doorW')) : Math.round(eqW * 0.94);
+        const doorH = p.get('doorH') ? Number(p.get('doorH')) : Math.round(eqH * 0.93);
+        const eqPayloadKg = p.get('eqPayloadKg') ? Number(p.get('eqPayloadKg')) : (p.get('maxWeightLbs') ? Math.round(Number(p.get('maxWeightLbs')) * 0.453592) : 20400);
 
-        const pkgName = p.get('pkgName') || 'Imported Cargo Unit';
-        const pkgQty = Number(p.get('pkgQty')) || 24;
+        const pkgName = p.get('pkgName') || p.get('packageName') || 'Imported Cargo Unit';
+        const rawQty = p.get('pkgQty') ?? p.get('packageQty');
+        const pkgQty = rawQty !== null && !isNaN(Number(rawQty)) ? Number(rawQty) : 24;
         const pkgL = Number(p.get('pkgL')) || 1219;
         const pkgW = Number(p.get('pkgW')) || 1016;
         const pkgH = Number(p.get('pkgH')) || 1372;
-        const pkgKg = Number(p.get('pkgKg')) || 800;
+        const pkgKg = p.get('pkgKg') ? Number(p.get('pkgKg')) : (p.get('cargoWeight') ? Math.round((Number(p.get('cargoWeight')) * 0.453592) / Math.max(1, pkgQty)) : 800);
 
-        const defaultEq = equipmentPresets();
+        const userCost = p.get('cost') ? Number(p.get('cost')) : null;
         const customEq: EquipmentProfile = {
-          id: 'p04-eq-1',
+          id: src === 'command_center_portal' ? 'portal-eq-1' : 'p04-eq-1',
           name: eqName,
           length: eqL,
           width: eqW,
           height: eqH,
           unit: 'mm',
-          doorWidth: eqW,
-          doorHeight: eqH,
+          doorWidth: doorW,
+          doorHeight: doorH,
           payload: eqPayloadKg,
           massUnit: 'kg',
-          cost: 1850,
+          cost: userCost,
           currency: 'USD',
-          costSource: 'user',
-          source: 'Product 04 Asset Studio',
+          costSource: userCost !== null ? 'user' : 'none',
+          source: src === 'command_center_portal' ? 'Command Center Portal' : 'Product 04 Asset Studio',
           included: true,
         };
 
@@ -100,7 +109,7 @@ export function App() {
               stop: 1,
             },
           ],
-          equipment: [customEq, ...defaultEq.map((e) => ({ ...e, included: false }))],
+          equipment: [customEq, ...equipmentPresets().map((e) => ({ ...e, included: false }))],
           settings: { ...DEFAULT_SETTINGS },
         };
       }
@@ -108,6 +117,38 @@ export function App() {
     return sampleScenario('mixed');
   });
   const [readOnly, setReadOnly] = useState<PlanFile | null>(null);
+  const session = useShipmentSession();
+  const imported = useRef<{ id: string; revision: number; inputRevision: number; assetAt?: string; hash: string } | null>(null);
+  const currentDraftHash = useRef(scenarioHash(scenario)); currentDraftHash.current = scenarioHash(scenario);
+  const manualDraft = useRef(false);
+  const [incoming, setIncoming] = useState<Shipment | null>(null);
+  const [publicationMessage, setPublicationMessage] = useState('');
+  function importShared(shipment: Shipment) {
+    try {
+      let next = scenarioForShipment(shipment);
+      const savedFit = shipment.results.fit;
+      if (savedFit?.ok && savedFit.inputRevision === shipment.inputRevision && savedFit.details.nativeScenario && savedFit.details.nativeResult) {
+        const savedScenario = savedFit.details.nativeScenario as Scenario;
+        const savedResult = savedFit.details.nativeResult as EquipmentResult;
+        const mapped = unitsForScenario(shipment, savedScenario);
+        if (JSON.stringify(mapped) !== JSON.stringify(shipment.input.units)) throw new Error('The saved native cargo inputs differ from the manifest. Inspect the saved fit before restoring it.');
+        const checked = resultForPlan(shipment, savedScenario, savedResult, savedFit.details.placements as Placement[]);
+        if (!checked.ok) throw new Error('The saved reviewed arrangement needs inspection before it can be restored.');
+        next = structuredClone(savedScenario);
+        solver.restore([structuredClone(savedResult)], scenarioHash(next));
+      }
+      imported.current = { id: shipment.id, revision: shipment.revision, inputRevision: shipment.inputRevision, assetAt: shipment.results.asset?.recordedAt, hash: scenarioHash(next) };
+      setIncoming(null); setReadOnly(null);
+      setEdits({}); setArrIdx(0); setPlanEq(null);
+      if (currentDraftHash.current !== scenarioHash(next)) setScenario(next);
+      if (route.page !== 'app') go('cargo');
+    } catch (error) { setPublicationMessage(error instanceof Error ? error.message : 'Shipment import unavailable.'); }
+  }
+  useShipmentContext(shipment => {
+    if (imported.current?.id === shipment.id && imported.current.revision === shipment.revision) return;
+    if (imported.current?.id === shipment.id && (currentDraftHash.current !== imported.current.hash || manualDraft.current)) { setIncoming(shipment); return; }
+    importShared(shipment);
+  }, false, 'record');
   const solver = useSolver();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastId = useRef(0);
@@ -118,6 +159,8 @@ export function App() {
   }, []);
 
   const [saved, setSaved] = useState<SavedScenario[]>(() => loadAll(window.localStorage));
+  const [tandemConfig, setTandemConfig] = useState<{ tandemHole: number; fifthWheelPosition: number; kpraFt?: number; legal: boolean } | null>(null);
+  const [nmfcSummary, setNmfcSummary] = useState<{ primaryClass: string; densityLbsCuFt: number; dimWeightPenaltyLbs?: number } | null>(null);
 
   useEffect(() => {
     const unsub = platformBus.subscribe('VEHICLE_CHANGED', (payload) => {
@@ -132,8 +175,10 @@ export function App() {
   const [planEq, setPlanEq] = useState<string | null>(null);
   const [arrIdx, setArrIdx] = useState(0);
   const [edits, setEdits] = useState<Record<string, Placement[]>>({});
+  manualDraft.current = Object.keys(edits).length > 0;
 
   const hash = useMemo(() => scenarioHash(scenario), [scenario]);
+  useEffect(()=>setPublicationMessage(''),[hash,edits]);
   const issues = useMemo(
     () => [...validateRows(scenario.rows), ...validateEquipment(scenario.equipment.filter((e) => e.included))],
     [scenario.rows, scenario.equipment],
@@ -228,7 +273,25 @@ export function App() {
     results, notify, go, saved, setSaved, currentId, doSave, loadScenario, baseline, setBaseline,
     planEq, setPlanEq, arrIdx, setArrIdx, edits, setEdits, openPlanFile,
     leaveReadOnly: () => { setReadOnly(null); solver.run(scenario); notify('ok', 'Editable copy opened. Plans are recomputing from the inputs.'); },
+    tandemConfig, setTandemConfig, nmfcSummary, setNmfcSummary,
   };
+  const sharedReview = useMemo(() => {
+    if (!session?.shipment) return null;
+    try {
+      if (readOnly) throw new Error('Open an editable copy before publishing a loading plan.');
+      if (!imported.current || imported.current.id !== session.shipment.id) throw new Error('Load the selected shipment into the native editor first.');
+      if (imported.current.revision !== session.shipment.revision || imported.current.inputRevision !== session.shipment.inputRevision || imported.current.assetAt !== session.shipment.results.asset?.recordedAt) throw new Error('The shared record changed. Review the incoming shipment before publishing. Your local draft is retained.');
+      if (stale || solver.state.phase !== 'done') throw new Error('Wait for current solver results before publishing.');
+      const selected = results.find(r => r.equipmentId === planEq && r.arrangements.length) ?? results.find(r => r.arrangements.length);
+      if (!selected) throw new Error('No current arrangement is available.');
+      const index = Math.min(arrIdx, selected.arrangements.length - 1);
+      const placements = edits[`${selected.equipmentId}:${index}`] ?? selected.arrangements[index].placements;
+      const sharedUnits = unitsForScenario(session.shipment, scenario);
+      const proposed = { ...session.shipment, input: { ...session.shipment.input, units: sharedUnits } };
+      const result = resultForPlan(proposed, scenario, selected, placements);
+      return { units: sharedUnits, result, error: result.ok ? '' : result.summary };
+    } catch (error) { return { error: error instanceof Error ? error.message : 'Publication unavailable.' }; }
+  }, [session?.shipment, scenario, readOnly, stale, solver.state.phase, results, planEq, arrIdx, edits, incoming]);
 
   if (route.page === 'landing') {
     return <Landing
@@ -266,6 +329,27 @@ export function App() {
         <div className="rail-foot">Geometric planning aid. Not a safety, axle or legal certificate.</div>
       </nav>
       <main className="main" id="main">
+        {session?.shipment && <section className="shipment-product-actions" aria-label="Connected cargo publication">
+          <strong>Review cargo and publish this loading plan</strong>
+          {session.shipment.status !== 'draft' && <p>Shipment planning is locked after dispatch. Saved records remain available; use standalone tools to explore a detached copy.</p>}
+          <p>Changes stay in this draft until you publish. Publishing saves the cargo and selected loading plan together; earlier pricing and receiving decisions then need review.</p>
+          {incoming && <p role="status">Shared inputs changed while you were editing. Your draft is retained. Review the incoming record, then explicitly load it to replace this working draft.</p>}
+          <div className="shipment-task-buttons">
+            <button className="shipment-primary" disabled={session.busy || !session.online || session.shipment.status !== 'draft' || !sharedReview?.result?.ok || Boolean(sharedReview?.error)} onClick={async () => {
+              if (!sharedReview?.result?.ok || !sharedReview.units) return;
+              const next = await session.submit('cargo.publish', { units: sharedReview.units, result: sharedReview.result }, imported.current?.revision);
+              if (next) { imported.current = { id: next.id, revision: next.revision, inputRevision: next.inputRevision, assetAt: next.results.asset?.recordedAt, hash }; setIncoming(null); setPublicationMessage('Reviewed cargo and loading plan saved to the shipment. Continue to Pricing.'); }
+            }}>Publish reviewed loading plan</button>
+            <button onClick={()=>session.inspect('stage:fit')}>Saved fit details</button>
+            <button onClick={()=>session.inspect('shipment')}>Review shared inputs</button>
+            <button disabled={session.busy || !session.online} onClick={()=>importShared(incoming ?? session.shipment!)}>Load current shared inputs</button>
+            {session.shipment.results.fit?.ok && session.shipment.results.fit.inputRevision === session.shipment.inputRevision && <a href={session.productUrl('product-02-freight-pricing')}>Continue to Pricing</a>}
+          </div>
+          <p role="status">{sharedReview?.error || publicationMessage || sharedReview?.result?.summary || 'Load and review the shipment to begin.'}</p>
+          {sharedReview?.result && <details className="shipment-draft-fields"><summary>Reviewed loading plan, checks and source inputs</summary><StructuredValue value={sharedReview.result.details} /></details>}
+          <div className="shipment-native-units" aria-label="Saved handling-unit details">{session.shipment.input.units.map((unit,index)=><button key={unit.id} title={`${unit.id} · ${unit.barcode}`} onClick={()=>session.inspect(`unit:${unit.id}`)}>Unit {index+1}: {unit.description}</button>)}</div>
+        </section>}
+        {!session?.selectedId && imported.current && <p className="banner" role="status">Detached local copy. This native scenario remains editable; changes do not update the shared shipment.</p>}
         {readOnly && (
           <div className="banner warn" role="status">
             <b>Read-only plan.</b> Opened from a plan file and re-validated here. Editing and saving are disabled.
@@ -314,4 +398,8 @@ export interface AppApi {
   setEdits: (e: Record<string, Placement[]>) => void;
   openPlanFile: (text: string) => void;
   leaveReadOnly: () => void;
+  tandemConfig: { tandemHole: number; fifthWheelPosition: number; kpraFt?: number; legal: boolean } | null;
+  setTandemConfig: (cfg: { tandemHole: number; fifthWheelPosition: number; kpraFt?: number; legal: boolean } | null) => void;
+  nmfcSummary: { primaryClass: string; densityLbsCuFt: number; dimWeightPenaltyLbs?: number } | null;
+  setNmfcSummary: (summary: { primaryClass: string; densityLbsCuFt: number; dimWeightPenaltyLbs?: number } | null) => void;
 }
