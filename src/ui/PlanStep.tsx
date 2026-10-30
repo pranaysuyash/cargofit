@@ -399,8 +399,17 @@ export function PlanStep(p: AppApi) {
             })}
           </div>
           {activeStage?.warning && (
-            <div className="banner warn" style={{ marginTop: 4 }}>
+            <div className="banner warn" style={{ marginTop: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span><b>Progressive Axle Risk:</b> {activeStage.warning}</span>
+              <button
+                type="button"
+                onClick={() => setIsTandemModalOpen(true)}
+                className="btn sm"
+                style={{ marginLeft: 8, fontWeight: 700, whiteSpace: 'nowrap' }}
+                aria-label="Re-balance Tandem Pins for this Leg"
+              >
+                Slide Tandem to Re-Balance ⚙️
+              </button>
             </div>
           )}
         </div>
