@@ -53,3 +53,6 @@ playwright/.cache/
 # Cloudflare / Agent / Deploy
 .wrangler/
 .agent/
+
+# Browser automation profiles
+**/.chrome-profile/
