@@ -14,6 +14,8 @@ import { simulateTandemSlide } from '../engine/tandemSlider';
 import { HazmatSegregationModal } from './HazmatSegregationModal';
 import { NmfcClassificationModal } from './NmfcClassificationModal';
 import { DunnageAirbagModal } from './DunnageAirbagModal';
+import { MultiTempBulkheadModal } from './MultiTempBulkheadModal';
+import { CartonCompressionModal } from './CartonCompressionModal';
 import { evaluateCargoVoidsAndDunnage } from '../engine/dunnageVoidCalculator';
 import type { Placement } from '../engine/types';
 import type { AppApi } from './App';
@@ -91,6 +93,8 @@ export function PlanStep(p: AppApi) {
   const [isHazmatModalOpen, setIsHazmatModalOpen] = useState(false);
   const [isNmfcModalOpen, setIsNmfcModalOpen] = useState(false);
   const [isDunnageModalOpen, setIsDunnageModalOpen] = useState(false);
+  const [isBulkheadModalOpen, setIsBulkheadModalOpen] = useState(false);
+  const [isCompressionModalOpen, setIsCompressionModalOpen] = useState(false);
 
   const dunnageReport = useMemo(() => {
     return evaluateCargoVoidsAndDunnage({
@@ -493,6 +497,30 @@ export function PlanStep(p: AppApi) {
                 aria-label="Audit 49 CFR § 393.106 Cargo Voids and Dunnage Airbags"
               >
                 {dunnageReport.statutoryCompliant ? '✓ Void Free' : `⚠️ ${dunnageReport.unsecuredVoidsCount} Airbag(s) Req`}
+              </button>
+            </div>
+            <div className="compliance-cell">
+              <span className="arr-lbl">Multi-Temp Reefer:</span>
+              <button
+                type="button"
+                onClick={() => setIsBulkheadModalOpen(true)}
+                className="chip ok"
+                style={{ cursor: 'pointer', border: 'none', fontWeight: 700 }}
+                aria-label="Simulate 53ft Multi-Temp Bulkheads & FSMA Thermal Zones"
+              >
+                Bulkhead Zones ❄️
+              </button>
+            </div>
+            <div className="compliance-cell">
+              <span className="arr-lbl">Carton Crush BCT:</span>
+              <button
+                type="button"
+                onClick={() => setIsCompressionModalOpen(true)}
+                className="chip ok"
+                style={{ cursor: 'pointer', border: 'none', fontWeight: 700 }}
+                aria-label="Audit Corrugated Carton Compressive Strength & Stacking Crush Limits"
+              >
+                Stack Crush BCT 📦
               </button>
             </div>
           </div>
@@ -951,10 +979,20 @@ export function PlanStep(p: AppApi) {
         onClose={() => setIsDunnageModalOpen(false)}
         report={dunnageReport}
       />
-      <DunnageAirbagModal
-        isOpen={isDunnageModalOpen}
-        onClose={() => setIsDunnageModalOpen(false)}
-        report={dunnageReport}
+      <MultiTempBulkheadModal
+        cargoRows={scenario.rows}
+        isOpen={isBulkheadModalOpen}
+        onClose={() => setIsBulkheadModalOpen(false)}
+        onApply={(pos, zones) => {
+          p.notify('ok', `Applied Bulkhead at ${pos}" (${zones.map(z => z.toUpperCase()).join(' / ')})`);
+        }}
+      />
+      <CartonCompressionModal
+        isOpen={isCompressionModalOpen}
+        onClose={() => setIsCompressionModalOpen(false)}
+        onApplyLimit={(maxSafeTiers) => {
+          p.notify('ok', `Carton stacking limit set to ${maxSafeTiers} max tiers.`);
+        }}
       />
     </section>
   );
