@@ -63,7 +63,8 @@ describe('49 CFR § 393.106 Cargo Void & Dunnage Airbag Evaluation Engine', () =
     expect(rearVoid).toBeDefined();
     expect(rearVoid!.gapInches).toBeGreaterThan(6.0);
     expect(rearVoid!.recommendedDunnage.type).toBe('INFLATABLE_AIRBAG_LEVEL_2');
-    expect(report.regulatoryNotice).toContain('49 CFR § 393.106 VIOLATION RISK');
+    expect(report.regulatoryNotice).toContain('illustrative');
+    expect(report.regulatoryNotice).not.toContain('statutory 6.0');
     expect(report.requiresFrictionMats).toBe(true); // friction < 0.5
   });
 

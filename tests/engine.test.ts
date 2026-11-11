@@ -243,7 +243,7 @@ describe('performance', () => {
       units: [u1],
     });
     expect(svgNorm).toContain('DOOR ENTRY');
-    expect(svgNorm).toContain('OPTIMAL CoG TARGET');
+    expect(svgNorm).toContain('ILLUSTRATIVE CoG REFERENCE');
     expect(svgNorm).toContain('CoG:');
 
     const svgBp = renderIso({
@@ -341,12 +341,16 @@ describe('performance', () => {
     expect(html).toContain('Steer Axle');
     expect(html).toContain('Drive Tandem');
     expect(html).toContain('Trailer Tandem');
-    expect(html).toContain('OPTIMAL CoG TARGET');
+    expect(html).toContain('ILLUSTRATIVE CoG REFERENCE');
+    expect(html).toContain('Actual axle and legal status are unknown');
+    expect(html).not.toContain('0.8g supported');
+    expect(html).not.toContain('California Compliant');
 
     const wo = buildWorkOrderHtml(planFile);
     expect(wo).toContain('Cargo Fit — Load Execution Work Order');
     expect(wo).toContain('Step-by-Step Loading Checklist');
     expect(wo).toContain('Forklift Operator / Lead Loader');
+    expect(wo).not.toContain('COMPLIANT (within statutory axle-group allowance)');
   });
 
   it('evaluates Federal Bridge Formula B statutory caps and KPRA spacing', async () => {

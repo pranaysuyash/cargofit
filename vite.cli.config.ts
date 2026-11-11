@@ -14,7 +14,7 @@ export default defineConfig({
       external: ['node:fs', 'node:path'],
       output: {
         banner: '#!/usr/bin/env node',
-        footer: 'runCli(process.argv);',
+        footer: 'process.exitCode = runCli(process.argv);',
       },
     },
     target: 'node20',

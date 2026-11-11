@@ -7,7 +7,9 @@ import { renderIso, renderSide, renderTop, rowColors } from '../engine/viz';
 import { validatePlacements, EPS } from '../engine/validator';
 import { evaluateBridgeCompliance } from '../engine/bridge';
 import { computeSecurementPlan } from '../engine/securement';
+import { classFromHazardLabel, declaredHazmatWeightLbs } from '../engine/hazmatSegregation';
 import { verifyBarcodeMatch } from '../engine/barcode';
+import { codeConfirmation, confirmationLabel, type LoadingConfirmation } from '../engine/loadingConfirmation';
 import { CameraScanner } from './CameraScanner';
 import { TandemSliderModal } from './TandemSliderModal';
 import { simulateTandemSlide } from '../engine/tandemSlider';
@@ -16,7 +18,8 @@ import { NmfcClassificationModal } from './NmfcClassificationModal';
 import { DunnageAirbagModal } from './DunnageAirbagModal';
 import { MultiTempBulkheadModal } from './MultiTempBulkheadModal';
 import { CartonCompressionModal } from './CartonCompressionModal';
-import { evaluateCargoVoidsAndDunnage } from '../engine/dunnageVoidCalculator';
+import { evaluateCargoVoidsAndDunnage, dunnageGeometryForPlacements } from '../engine/dunnageVoidCalculator';
+import { artifactScope, saveModeledArtifact } from '../engine/modeledArtifacts';
 import type { Placement } from '../engine/types';
 import type { AppApi } from './App';
 import { NumInput, StatusBadge } from './common';
@@ -47,6 +50,7 @@ export function PlanStep(p: AppApi) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [barcodeInput, setBarcodeInput] = useState('');
   const [scanStatus, setScanStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [confirmations, setConfirmations] = useState<Record<string, LoadingConfirmation>>({});
   const [showScanner, setShowScanner] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const vref = useRef<HTMLDivElement>(null);
@@ -58,6 +62,8 @@ export function PlanStep(p: AppApi) {
   const key = result ? `${result.equipmentId}:${arrIdx}` : '';
   const working: Placement[] = (key && p.edits[key]) || arr?.placements || [];
   const edited = !!(key && p.edits[key]);
+  const confirmationScope = JSON.stringify([key, working, scenario.rows]);
+  useEffect(() => { setConfirmations({}); setScanStatus(null); }, [confirmationScope]);
 
   const profile = result ? scenario.equipment.find((e) => e.id === result.equipmentId) : undefined;
   const eq = useMemo(() => (profile ? normalizeEquipment(profile) : null), [profile]);
@@ -72,9 +78,10 @@ export function PlanStep(p: AppApi) {
   const unplaced = units.filter((u) => !placedIds.has(u.id));
 
   const activeStage = result?.multiStopStages && result.multiStopStages[activeStageIdx] ? result.multiStopStages[activeStageIdx] : null;
+  const modeledScope = artifactScope(scenario, result?.equipmentId ?? '', arrIdx, working, activeStage?.stage ?? 0);
 
   const bridgeReport = useMemo(() => {
-    if (!eq || !metrics) return null;
+    if (!eq || !metrics || units.some((u) => working.some((w) => w.unitId === u.id) && u.weightKg === null)) return null;
     const effectiveWeightKg = activeStage && activeStage.stage > 0 ? activeStage.remainingWeightKg : metrics.loadedWeightKg;
     const effectiveCogXMm = (activeStage && activeStage.stage > 0 && activeStage.cogX !== null) ? activeStage.cogX : (metrics.cogX ?? 0);
     return evaluateBridgeCompliance({
@@ -82,11 +89,12 @@ export function PlanStep(p: AppApi) {
       cargoWeightKg: effectiveWeightKg,
       cargoCogXMm: effectiveCogXMm,
     });
-  }, [eq, metrics, activeStage]);
+  }, [eq, metrics, activeStage, units, working]);
 
   const securementPlan = useMemo(() => {
-    if (!eq) return null;
-    return computeSecurementPlan(units, working);
+    if (!eq || units.some((u) => working.some((w) => w.unitId === u.id) && u.weightKg === null)) return null;
+    const estimate = computeSecurementPlan(units, working);
+    return estimate.complete ? estimate : null;
   }, [eq, units, working]);
 
   const [isTandemModalOpen, setIsTandemModalOpen] = useState(false);
@@ -103,23 +111,10 @@ export function PlanStep(p: AppApi) {
         widthMm: eq?.W ?? 2540,
         heightMm: eq?.H ?? 2794,
       },
-      placements: working.map((w) => {
-        const u = unitMap.get(w.unitId);
-        return {
-          unitId: w.unitId,
-          label: w.label || 'Unit',
-          xMm: w.x,
-          yMm: w.y,
-          zMm: w.z,
-          dxMm: w.dx,
-          dyMm: w.dy,
-          dzMm: w.dz,
-          weightKg: u?.weightKg ?? 500,
-        };
-      }),
+      placements: dunnageGeometryForPlacements(working, units),
       deckFrictionMu: 0.35,
     });
-  }, [eq, working, unitMap]);
+  }, [eq, working, units]);
 
   const geometryInput = useMemo(() => {
     const effectiveWeightKg = activeStage && activeStage.stage > 0 ? activeStage.remainingWeightKg : (metrics?.loadedWeightKg ?? 0);
@@ -135,24 +130,15 @@ export function PlanStep(p: AppApi) {
     return scenario.rows
       .filter((r) => /haz|class\s*[1-9]|un\s*\d{4}|flamm|oxid|corros|toxic|acid|cyanide/i.test(r.label))
       .map((r, i) => {
-        let classCode: any = '3';
-        if (/1\.[1-5]/i.test(r.label)) classCode = '1.1';
-        else if (/2\.3/i.test(r.label)) classCode = '2.3';
-        else if (/5\.1/i.test(r.label)) classCode = '5.1';
-        else if (/5\.2/i.test(r.label)) classCode = '5.2';
-        else if (/6\.1/i.test(r.label)) classCode = '6.1';
-        else if (/8|acid|corros/i.test(r.label)) classCode = '8';
-        else if (/cyanide/i.test(r.label)) classCode = '6.1';
-
         const unMatch = r.label.match(/UN\s*(\d{4})/i);
         return {
           id: `HAZ-${i + 1}`,
           description: r.label,
-          classCode,
+          classCode: classFromHazardLabel(r.label),
           unNumber: unMatch ? `UN${unMatch[1]}` : undefined,
           isAcid: /acid/i.test(r.label),
           isCyanide: /cyanide/i.test(r.label),
-          weightLbs: Math.round((r.weight ?? 500) * 2.20462),
+          weightLbs: declaredHazmatWeightLbs(r.weight, r.weightUnit),
         };
       });
   }, [scenario.rows]);
@@ -429,17 +415,18 @@ export function PlanStep(p: AppApi) {
       </div>
 
       {(bridgeReport || securementPlan || hazmatItems.length > 0) && (
-        <div className="arr-gallery compliance-strip" role="region" aria-label="Statutory compliance and tie-down guidance">
+        <div className="arr-gallery compliance-strip" role="region" aria-label="Illustrative loading estimates">
+          <p>Illustrative estimates use assumed vehicle geometry, tare and restraint conditions. Actual axle legality, securement and hazard classification remain unverified.</p>
           <div className="compliance-row">
             {bridgeReport && (
               <div className="compliance-cell">
-                <span className="arr-lbl">FMCSA Bridge Formula B:</span>
-                <span className={`chip ${bridgeReport.allCompliant ? 'ok' : 'err'}`}>
-                  {bridgeReport.allCompliant ? 'COMPLIANT' : 'OVERLOAD VIOLATION'}
+                <span className="arr-lbl">Illustrative bridge estimate:</span>
+                <span className="chip warn">
+                  {bridgeReport.allCompliant ? 'Within assumed benchmarks' : 'Assumed benchmark exceeded'}
                 </span>
                 <span className="mono small">
-                  GVW: {bridgeReport.overallGvwLbs.toLocaleString()} / {bridgeReport.maxLegalGvwLbs.toLocaleString()} lbs
-                  {bridgeReport.kpraFt !== null && ` · KPRA: ${bridgeReport.kpraFt.toFixed(1)}ft (${bridgeReport.kpraCompliant ? 'CA OK' : 'CA Violation'})`}
+                  Estimated GVW: {bridgeReport.overallGvwLbs.toLocaleString()} / {bridgeReport.maxLegalGvwLbs.toLocaleString()} lbs
+                  {bridgeReport.kpraFt !== null && ` · Assumed KPRA: ${bridgeReport.kpraFt.toFixed(1)}ft (${bridgeReport.kpraCompliant ? 'within benchmark' : 'above benchmark'})`}
                 </span>
                 <button
                   type="button"
@@ -454,12 +441,12 @@ export function PlanStep(p: AppApi) {
             )}
             {securementPlan && (
               <div className="compliance-cell">
-                <span className="arr-lbl">Cargo Restraints (49 CFR § 393):</span>
-                <span className="chip ok">
-                  {securementPlan.totalTieDownsCount} Tie-Down(s) Required
+                <span className="arr-lbl">Illustrative restraint estimate:</span>
+                <span className="chip warn">
+                  {securementPlan.totalTieDownsCount} estimated tie-down(s)
                 </span>
                 <span className="mono small">
-                  Min WLL: {securementPlan.totalRequiredWllLbs.toLocaleString()} lbs (≥50% weight) · Deck: {securementPlan.deckFrictionMu}μ
+                  Estimated WLL: {securementPlan.totalRequiredWllLbs.toLocaleString()} lbs · Assumed deck: {securementPlan.deckFrictionMu}μ
                 </span>
               </div>
             )}
@@ -468,11 +455,11 @@ export function PlanStep(p: AppApi) {
               <button
                 type="button"
                 onClick={() => setIsHazmatModalOpen(true)}
-                className={`chip ${hazmatItems.length > 0 ? 'warn' : 'ok'}`}
+                className="chip warn"
                 style={{ cursor: 'pointer', border: 'none', fontWeight: 700 }}
                 aria-label="Open Hazardous Materials Segregation Table"
               >
-                {hazmatItems.length > 0 ? `⚠️ ${hazmatItems.length} Hazmat Item(s)` : '✓ Non-Hazardous'}
+                {hazmatItems.length > 0 ? `${hazmatItems.length} possible hazard label(s); classification unverified` : 'Hazard classification not declared'}
               </button>
             </div>
             <div className="compliance-cell">
@@ -492,11 +479,11 @@ export function PlanStep(p: AppApi) {
               <button
                 type="button"
                 onClick={() => setIsDunnageModalOpen(true)}
-                className={`chip ${dunnageReport.statutoryCompliant ? 'ok' : 'warn'}`}
+                className="chip warn"
                 style={{ cursor: 'pointer', border: 'none', fontWeight: 700 }}
                 aria-label="Audit 49 CFR § 393.106 Cargo Voids and Dunnage Airbags"
               >
-                {dunnageReport.statutoryCompliant ? '✓ Void Free' : `⚠️ ${dunnageReport.unsecuredVoidsCount} Airbag(s) Req`}
+                {dunnageReport.statutoryCompliant ? 'No modeled void alert' : `${dunnageReport.unsecuredVoidsCount} modeled void(s) to review`}
               </button>
             </div>
             <div className="compliance-cell">
@@ -607,7 +594,9 @@ export function PlanStep(p: AppApi) {
                         onScan={(scannedCode) => {
                           const res = verifyBarcodeMatch(scannedCode, activeStepUnit.unitId, activeStepUnit.label, activeStepUnitInfo?.barcode);
                           if (res.matched) {
-                            setScanStatus({ ok: true, msg: `Camera tag verified: ${activeStepUnit.unitId}` });
+                            const confirmation = codeConfirmation('camera', activeStepUnit.unitId, res)!;
+                            setConfirmations((current) => ({ ...current, [confirmation.unitId]: confirmation }));
+                            setScanStatus({ ok: true, msg: confirmationLabel(confirmation) });
                             const next = currentStepNum + 1;
                             setUpTo(next >= working.length ? null : next);
                             const targetUnit = working.find((w) => w.order === next);
@@ -628,7 +617,9 @@ export function PlanStep(p: AppApi) {
                           if (barcodeInput.trim()) {
                             const res = verifyBarcodeMatch(barcodeInput, activeStepUnit.unitId, activeStepUnit.label, activeStepUnitInfo?.barcode);
                             if (res.matched) {
-                              setScanStatus({ ok: true, msg: `Tag match: ${activeStepUnit.unitId} verified` });
+                              const confirmation = codeConfirmation('entered-code', activeStepUnit.unitId, res)!;
+                              setConfirmations((current) => ({ ...current, [confirmation.unitId]: confirmation }));
+                              setScanStatus({ ok: true, msg: confirmationLabel(confirmation) });
                               const next = currentStepNum + 1;
                               setUpTo(next >= working.length ? null : next);
                               const targetUnit = working.find((w) => w.order === next);
@@ -654,7 +645,9 @@ export function PlanStep(p: AppApi) {
                           type="button"
                           className="btn sm ghost"
                           onClick={() => {
-                            setScanStatus({ ok: true, msg: `Direct confirm: ${activeStepUnit.unitId} verified` });
+                            const confirmation: LoadingConfirmation = { method: 'manual', unitId: activeStepUnit.unitId };
+                            setConfirmations((current) => ({ ...current, [confirmation.unitId]: confirmation }));
+                            setScanStatus({ ok: true, msg: confirmationLabel(confirmation) });
                             const next = currentStepNum + 1;
                             setUpTo(next >= working.length ? null : next);
                             const targetUnit = working.find((w) => w.order === next);
@@ -662,7 +655,7 @@ export function PlanStep(p: AppApi) {
                             setTimeout(() => setScanStatus(null), 3000);
                           }}
                         >
-                          Quick Confirm
+                          Manually confirm (no scan)
                         </button>
                       </form>
                     )}
@@ -671,6 +664,7 @@ export function PlanStep(p: AppApi) {
                         {scanStatus.msg}
                       </span>
                     )}
+                    {confirmations[activeStepUnit.unitId] && <p className="small">{confirmationLabel(confirmations[activeStepUnit.unitId])}. Session only; not a durable loading record.</p>}
                   </div>
                 </div>
               )}
@@ -692,8 +686,8 @@ export function PlanStep(p: AppApi) {
                   <div className="dock-axle-head-row">
                     <span className="dock-axle-title">Axle Weight Distribution (Est.)</span>
                     {metrics.axleEst.bridgeFormulaCompliant !== undefined && (
-                      <span className={`chip sm ${metrics.axleEst.bridgeFormulaCompliant ? 'ok' : 'warn'}`}>
-                        {metrics.axleEst.bridgeFormulaCompliant ? 'Bridge Formula B OK' : 'Bridge Formula Alert'}
+                      <span className="chip sm warn">
+                        {metrics.axleEst.bridgeFormulaCompliant ? 'Within assumed benchmark; actual status unknown' : 'Assumed benchmark exceeded; actual status unknown'}
                       </span>
                     )}
                   </div>
@@ -946,13 +940,16 @@ export function PlanStep(p: AppApi) {
         onClose={() => setIsTandemModalOpen(false)}
         onApplyConfig={(cfg) => {
           const res = simulateTandemSlide(geometryInput, cfg);
-          p.setTandemConfig({
+          const artifact = { scope: modeledScope, value: {
             tandemHole: cfg.tandemHole,
             fifthWheelPosition: cfg.fifthWheelPosition,
             kpraFt: res.kpraFt,
             legal: res.allAxlesLegal,
-          });
-          p.notify('ok', `Applied Tandem Pin Hole #${cfg.tandemHole} (KPRA: ${res.kpraFt}ft, ${res.allAxlesLegal ? 'Legal' : 'Requires adjustment'}).`);
+          } };
+          p.setTandemConfig(artifact);
+          let stored = true;
+          try { saveModeledArtifact(window.localStorage, 'tandem', artifact); } catch { stored = false; }
+          p.notify(stored ? 'ok' : 'warn', `Applied Tandem Pin Hole #${cfg.tandemHole} (modeled KPRA: ${res.kpraFt}ft, ${res.allAxlesLegal ? 'within assumed benchmarks' : 'assumed benchmark exceeded'}; actual status unverified).${stored ? '' : ' Available in this session only; browser artifact storage could not be updated.'}`);
         }}
       />
       <HazmatSegregationModal
@@ -961,17 +958,22 @@ export function PlanStep(p: AppApi) {
         onClose={() => setIsHazmatModalOpen(false)}
       />
       <NmfcClassificationModal
+        key={modeledScope}
         isOpen={isNmfcModalOpen}
         onClose={() => setIsNmfcModalOpen(false)}
-        initialWeightLbs={Math.round((metrics?.loadedWeightKg ?? 8000) * 2.20462)}
-        initialVolumeCuFt={Math.round(((eq?.L ?? 16000) * (eq?.W ?? 2600) * (eq?.H ?? 2800) * (metrics?.occupiedVolumePct ?? 50) / 100) / 28316846.592)}
+        initialWeightLbs={working.length > 0 && working.every(w => { const weight = unitMap.get(w.unitId)?.weightKg; return weight !== null && weight !== undefined && Number.isFinite(weight) && weight > 0; }) ? Math.round((metrics?.loadedWeightKg ?? 0) * 2.20462) : 0}
+        initialVolumeCuFt={eq && metrics ? Math.round((eq.L * eq.W * eq.H * metrics.occupiedVolumePct / 100) / 28316846.592) : 0}
         onApplyClassification={(summary) => {
-          p.setNmfcSummary({
+          const artifact = { scope: modeledScope, value: {
             primaryClass: summary.primaryClass,
             densityLbsCuFt: summary.densityLbsCuFt,
             dimWeightPenaltyLbs: summary.dimWeightPenaltyLbs,
-          });
-          p.notify('ok', `Certified NMFC Class ${summary.primaryClass} (${summary.densityLbsCuFt.toFixed(1)} lbs/cu ft) bound to manifest.`);
+            assumptions: summary.assumptions,
+          } };
+          p.setNmfcSummary(artifact);
+          let stored = true;
+          try { saveModeledArtifact(window.localStorage, 'nmfc', artifact); } catch { stored = false; }
+          p.notify(stored ? 'ok' : 'warn', `Illustrative density class ${summary.primaryClass} (${summary.densityLbsCuFt.toFixed(1)} lbs/cu ft) recorded for this arrangement; actual classification is unverified.${stored ? '' : ' Available in this session only; browser artifact storage could not be updated.'}`);
         }}
       />
       <DunnageAirbagModal

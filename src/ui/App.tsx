@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { expandUnits, normalizeEquipment, validateEquipment, validateRows } from '../engine/normalize';
-import { scenarioHash, summarize, DEFAULT_SETTINGS, type ResultSummary } from '../engine/scenario';
-import { loadAll, saveRevision, type SavedScenario } from '../engine/storage';
-import type { EquipmentProfile, EquipmentResult, Placement, Scenario } from '../engine/types';
+import { scenarioHash, summarize, type ResultSummary } from '../engine/scenario';
+import { loadAll, saveRevision, SavedScenariosReadError, type SavedScenario } from '../engine/storage';
+import type { EquipmentResult, Placement, Scenario } from '../engine/types';
 import { readPlanFile, type PlanFile } from '../engine/report';
 import { computeMetrics, buildChecks } from '../engine/analyze';
 import { Landing } from './Landing';
@@ -11,7 +11,9 @@ import { EquipmentStep } from './EquipmentStep';
 import { DecisionStep } from './DecisionStep';
 import { PlanStep } from './PlanStep';
 import { VersionsStep } from './VersionsStep';
-import { blankScenario, sampleScenario, equipmentPresets } from './samples';
+import { blankScenario, sampleScenario } from './samples';
+import { scenarioFromSuiteParams } from './suiteImport';
+import type { ScopedArtifact, TandemArtifact, NmfcArtifact } from '../engine/modeledArtifacts';
 import { useSolver } from './useSolver';
 import { SuiteDock } from './SuiteDock';
 import { platformBus } from '../engine/platformBus';
@@ -51,71 +53,8 @@ export function App() {
   }, []);
   const go = useCallback((step: StepId) => { window.location.hash = `#/app/${step}`; }, []);
 
-  const [scenario, setScenario] = useState<Scenario>(() => {
-    if (typeof window !== 'undefined') {
-      const p = new URLSearchParams(window.location.search);
-      const src = p.get('source');
-      if (src === 'asset_studio_p04' || src === 'command_center_portal') {
-        const eqName = p.get('eqName') || (p.get('vehicleId') ? p.get('vehicleId')! : 'Commercial Trailer');
-        const eqL = p.get('eqL') ? Number(p.get('eqL')) : (p.get('lengthFt') ? Math.round(Number(p.get('lengthFt')) * 304.8) : 16000);
-        const eqW = Number(p.get('eqW')) || 2540;
-        const eqH = Number(p.get('eqH')) || 2794;
-        const doorW = p.get('doorW') ? Number(p.get('doorW')) : Math.round(eqW * 0.94);
-        const doorH = p.get('doorH') ? Number(p.get('doorH')) : Math.round(eqH * 0.93);
-        const eqPayloadKg = p.get('eqPayloadKg') ? Number(p.get('eqPayloadKg')) : (p.get('maxWeightLbs') ? Math.round(Number(p.get('maxWeightLbs')) * 0.453592) : 20400);
-
-        const pkgName = p.get('pkgName') || p.get('packageName') || 'Imported Cargo Unit';
-        const rawQty = p.get('pkgQty') ?? p.get('packageQty');
-        const pkgQty = rawQty !== null && !isNaN(Number(rawQty)) ? Number(rawQty) : 24;
-        const pkgL = Number(p.get('pkgL')) || 1219;
-        const pkgW = Number(p.get('pkgW')) || 1016;
-        const pkgH = Number(p.get('pkgH')) || 1372;
-        const pkgKg = p.get('pkgKg') ? Number(p.get('pkgKg')) : (p.get('cargoWeight') ? Math.round((Number(p.get('cargoWeight')) * 0.453592) / Math.max(1, pkgQty)) : 800);
-
-        const userCost = p.get('cost') ? Number(p.get('cost')) : null;
-        const customEq: EquipmentProfile = {
-          id: src === 'command_center_portal' ? 'portal-eq-1' : 'p04-eq-1',
-          name: eqName,
-          length: eqL,
-          width: eqW,
-          height: eqH,
-          unit: 'mm',
-          doorWidth: doorW,
-          doorHeight: doorH,
-          payload: eqPayloadKg,
-          massUnit: 'kg',
-          cost: userCost,
-          currency: 'USD',
-          costSource: userCost !== null ? 'user' : 'none',
-          source: src === 'command_center_portal' ? 'Command Center Portal' : 'Product 04 Asset Studio',
-          included: true,
-        };
-
-        return {
-          name: `${eqName} Load Optimization`,
-          rows: [
-            {
-              uid: 'p04-row-1',
-              label: pkgName,
-              qty: pkgQty,
-              length: pkgL,
-              width: pkgW,
-              height: pkgH,
-              dimUnit: 'mm',
-              weight: pkgKg,
-              weightUnit: 'kg',
-              rotation: 'upright',
-              stackable: true,
-              stop: 1,
-            },
-          ],
-          equipment: [customEq, ...equipmentPresets().map((e) => ({ ...e, included: false }))],
-          settings: { ...DEFAULT_SETTINGS },
-        };
-      }
-    }
-    return sampleScenario('mixed');
-  });
+  const [scenario, setScenario] = useState<Scenario>(() =>
+    scenarioFromSuiteParams(new URLSearchParams(window.location.search)) ?? sampleScenario('mixed'));
   const [readOnly, setReadOnly] = useState<PlanFile | null>(null);
   const session = useShipmentSession();
   const imported = useRef<{ id: string; revision: number; inputRevision: number; assetAt?: string; hash: string } | null>(null);
@@ -158,9 +97,14 @@ export function App() {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 5200);
   }, []);
 
-  const [saved, setSaved] = useState<SavedScenario[]>(() => loadAll(window.localStorage));
-  const [tandemConfig, setTandemConfig] = useState<{ tandemHole: number; fifthWheelPosition: number; kpraFt?: number; legal: boolean } | null>(null);
-  const [nmfcSummary, setNmfcSummary] = useState<{ primaryClass: string; densityLbsCuFt: number; dimWeightPenaltyLbs?: number } | null>(null);
+  const [initialSaved] = useState(() => {
+    try { return { scenarios: loadAll(window.localStorage), error: null as string | null }; }
+    catch (e) { return { scenarios: [] as SavedScenario[], error: (e as Error).message }; }
+  });
+  const [saved, setSaved] = useState<SavedScenario[]>(initialSaved.scenarios);
+  const [storageError, setStorageError] = useState<string | null>(initialSaved.error);
+  const [tandemConfig, setTandemConfig] = useState<ScopedArtifact<TandemArtifact> | null>(null);
+  const [nmfcSummary, setNmfcSummary] = useState<ScopedArtifact<NmfcArtifact> | null>(null);
 
   useEffect(() => {
     const unsub = platformBus.subscribe('VEHICLE_CHANGED', (payload) => {
@@ -229,10 +173,12 @@ export function App() {
     try {
       const { saved: sc, revision } = saveRevision(window.localStorage, currentId, scenario, hash, results, results.map(summarize), note);
       setSaved(loadAll(window.localStorage));
+      setStorageError(null);
       setCurrentId(sc.id);
       setLastSavedHash(hash);
       notify('ok', `Saved revision ${revision.rev} of “${sc.name}” to this browser (verified by read-back).`);
     } catch (e) {
+      if (e instanceof SavedScenariosReadError) setStorageError(e.message);
       notify('err', `NOT saved: ${(e as Error).message}`);
     }
   }, [readOnly, stale, solver.state.phase, currentId, scenario, hash, results, notify]);
@@ -270,7 +216,7 @@ export function App() {
 
   const api: AppApi = {
     scenario, setScenario: setScenarioSafe, readOnly, issues, units, hash, stale, unsaved, solver,
-    results, notify, go, saved, setSaved, currentId, doSave, loadScenario, baseline, setBaseline,
+    results, notify, go, saved, setSaved, storageError, setStorageError, currentId, doSave, loadScenario, baseline, setBaseline,
     planEq, setPlanEq, arrIdx, setArrIdx, edits, setEdits, openPlanFile,
     leaveReadOnly: () => { setReadOnly(null); solver.run(scenario); notify('ok', 'Editable copy opened. Plans are recomputing from the inputs.'); },
     tandemConfig, setTandemConfig, nmfcSummary, setNmfcSummary,
@@ -350,6 +296,7 @@ export function App() {
           <div className="shipment-native-units" aria-label="Saved handling-unit details">{session.shipment.input.units.map((unit,index)=><button key={unit.id} title={`${unit.id} · ${unit.barcode}`} onClick={()=>session.inspect(`unit:${unit.id}`)}>Unit {index+1}: {unit.description}</button>)}</div>
         </section>}
         {!session?.selectedId && imported.current && <p className="banner" role="status">Detached local copy. This native scenario remains editable; changes do not update the shared shipment.</p>}
+        {scenario.equipment.some((e) => e.included && (e.id === 'portal-eq-1' || e.id === 'p04-eq-1')) && <p className="banner warn" role="status">Review imported measurements. Missing values remain blank. Fixed orientation and no-stack are conservative planning defaults, not declarations from the source.</p>}
         {readOnly && (
           <div className="banner warn" role="status">
             <b>Read-only plan.</b> Opened from a plan file and re-validated here. Editing and saving are disabled.
@@ -385,6 +332,8 @@ export interface AppApi {
   go: (s: StepId) => void;
   saved: SavedScenario[];
   setSaved: (s: SavedScenario[]) => void;
+  storageError: string | null;
+  setStorageError: (error: string | null) => void;
   currentId: string | null;
   doSave: (note: string) => void;
   loadScenario: (s: Scenario, id?: string | null, savedHash?: string | null) => void;
@@ -398,8 +347,8 @@ export interface AppApi {
   setEdits: (e: Record<string, Placement[]>) => void;
   openPlanFile: (text: string) => void;
   leaveReadOnly: () => void;
-  tandemConfig: { tandemHole: number; fifthWheelPosition: number; kpraFt?: number; legal: boolean } | null;
-  setTandemConfig: (cfg: { tandemHole: number; fifthWheelPosition: number; kpraFt?: number; legal: boolean } | null) => void;
-  nmfcSummary: { primaryClass: string; densityLbsCuFt: number; dimWeightPenaltyLbs?: number } | null;
-  setNmfcSummary: (summary: { primaryClass: string; densityLbsCuFt: number; dimWeightPenaltyLbs?: number } | null) => void;
+  tandemConfig: ScopedArtifact<TandemArtifact> | null;
+  setTandemConfig: (cfg: ScopedArtifact<TandemArtifact> | null) => void;
+  nmfcSummary: ScopedArtifact<NmfcArtifact> | null;
+  setNmfcSummary: (summary: ScopedArtifact<NmfcArtifact> | null) => void;
 }

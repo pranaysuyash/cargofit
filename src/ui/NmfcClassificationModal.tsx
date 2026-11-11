@@ -14,6 +14,7 @@ interface NmfcClassificationModalProps {
     primaryClass: string;
     densityLbsCuFt: number;
     dimWeightPenaltyLbs?: number;
+    assumptions: { weightLbs: number; volumeCuFt: number; dimFactor: number };
   }) => void;
 }
 
@@ -24,9 +25,10 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
   initialVolumeCuFt,
   onApplyClassification,
 }) => {
-  const [weightLbs, setWeightLbs] = useState<number>(initialWeightLbs || 18500);
-  const [volumeCuFt, setVolumeCuFt] = useState<number>(initialVolumeCuFt || 950);
+  const [weightLbs, setWeightLbs] = useState<number>(initialWeightLbs);
+  const [volumeCuFt, setVolumeCuFt] = useState<number>(initialVolumeCuFt);
   const [dimFactor, setDimFactor] = useState<number>(166);
+  const validInputs = Number.isFinite(weightLbs) && weightLbs > 0 && Number.isFinite(volumeCuFt) && volumeCuFt > 0;
 
   const result = useMemo(() => {
     const input: NmfcClassificationInput = {
@@ -38,14 +40,13 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
   }, [weightLbs, volumeCuFt, dimFactor]);
 
   const handleApply = () => {
+    if (!validInputs) return;
     const summary = {
       primaryClass: String(result.recommendedNmfcClass),
       densityLbsCuFt: result.densityPcf,
       dimWeightPenaltyLbs: result.isDimWeightPenaltyActive ? result.dimWeightOverageLbs : undefined,
+      assumptions: { weightLbs, volumeCuFt, dimFactor },
     };
-    try {
-      localStorage.setItem('cargo_fit_active_nmfc_summary', JSON.stringify(summary));
-    } catch {}
     if (onApplyClassification) {
       onApplyClassification(summary);
     }
@@ -117,11 +118,11 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
                   border: '1px solid #bae6fd',
                 }}
               >
-                CLASS {result.recommendedNmfcClass}
+                {validInputs ? `MODEL CLASS ${result.recommendedNmfcClass}` : 'INPUTS NEEDED'}
               </span>
             </div>
             <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
-              Standard National Motor Freight Classification (49 CFR § 1033) density calculator to prevent carrier re-weigh penalties.
+              Illustrative density estimate only. Actual classification and carrier charges require independent confirmation.
             </p>
           </div>
           <button
@@ -143,8 +144,9 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
 
         {/* Content */}
         <div style={{ padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {!validInputs && <p role="status">Enter a positive cargo weight and volume to calculate an illustrative estimate.</p>}
           {/* Key Metric Highlights */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          {validInputs && <><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
             <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Cargo Density</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>
@@ -154,7 +156,7 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
             </div>
 
             <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Actual Payload</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Entered Weight</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>
                 {result.actualWeightLbs.toLocaleString()} <span style={{ fontSize: 12, fontWeight: 500 }}>lbs</span>
               </div>
@@ -172,7 +174,7 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
             </div>
 
             <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Billable Weight</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Modeled Weight</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>
                 {result.billableWeightLbs.toLocaleString()} <span style={{ fontSize: 12, fontWeight: 500 }}>lbs</span>
               </div>
@@ -194,8 +196,8 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
               fontWeight: 500,
             }}
           >
-            {result.auditExplanation}
-          </div>
+            Density {result.densityPcf.toFixed(1)} lbs/ft³ maps to illustrative class {result.recommendedNmfcClass}. Actual classification and carrier billing are unverified.
+          </div></>}
 
           {/* Interactive Calculation Controls */}
           <div style={{ background: '#f8fafc', padding: '14px 18px', borderRadius: 8, border: '1px solid #e2e8f0' }}>
@@ -251,7 +253,7 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
           {/* NMFC Standard Tier Reference Grid */}
           <div>
             <h3 style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>
-              Standard NMFC Classification Tiers (Density Range &amp; Commodities)
+              Illustrative Density Tiers (Density Range &amp; Commodities)
             </h3>
             <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
@@ -265,7 +267,7 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
                 </thead>
                 <tbody>
                   {NMFC_STANDARD_TIERS.map((tier) => {
-                    const isCurrent = tier.classNumber === result.recommendedNmfcClass;
+                    const isCurrent = validInputs && tier.classNumber === result.recommendedNmfcClass;
                     return (
                       <tr
                         key={tier.classNumber}
@@ -304,7 +306,7 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
           }}
         >
           <span style={{ fontSize: 11, color: '#64748b' }}>
-            Recommended Class: <b>Class {result.recommendedNmfcClass}</b> · Billable Weight: <b>{result.billableWeightLbs.toLocaleString()} lbs</b>
+            {validInputs ? <>Illustrative Class: <b>Class {result.recommendedNmfcClass}</b> · Modeled Weight: <b>{result.billableWeightLbs.toLocaleString()} lbs</b></> : 'Estimate unavailable until inputs are provided.'}
           </span>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
@@ -323,6 +325,7 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
               Cancel
             </button>
             <button
+              disabled={!validInputs}
               onClick={handleApply}
               style={{
                 padding: '6px 16px',
@@ -335,7 +338,7 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
                 cursor: 'pointer',
               }}
             >
-              Apply to Manifest &amp; BOL
+              Include estimate in plan
             </button>
           </div>
         </div>

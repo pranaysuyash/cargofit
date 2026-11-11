@@ -57,10 +57,10 @@ export const HazmatSegregationModal: React.FC<HazmatSegregationModalProps> = ({
         >
           <div>
             <h2 id="hazmat-modal-title" style={{ fontSize: 16, margin: 0, fontWeight: 700, color: '#0f172a' }}>
-              Hazardous Materials Segregation Audit
+              Illustrative hazard segregation review
             </h2>
             <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>
-              49 CFR § 177.848 Highway Transport Co-Loading Compatibility Matrix
+              Classes are extracted only from matching label text and remain unverified. Missing classes are unknown; confirm classifications and applicable rules independently.
             </p>
           </div>
           <button
@@ -90,8 +90,8 @@ export const HazmatSegregationModal: React.FC<HazmatSegregationModalProps> = ({
             style={{
               padding: '12px 16px',
               borderRadius: 8,
-              background: auditReport.compliant ? '#f0fdf4' : auditReport.hasProhibitedCoLoading ? '#fef2f2' : '#fffbeb',
-              border: `1px solid ${auditReport.compliant ? '#86efac' : auditReport.hasProhibitedCoLoading ? '#fca5a5' : '#fde68a'}`,
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -106,28 +106,28 @@ export const HazmatSegregationModal: React.FC<HazmatSegregationModalProps> = ({
                   fontSize: 12,
                   padding: '2px 8px',
                   borderRadius: 4,
-                  background: auditReport.compliant ? '#15803d' : auditReport.hasProhibitedCoLoading ? '#b91c1c' : '#d97706',
+                  background: '#b45309',
                   color: '#ffffff',
                   marginRight: 8,
                 }}
               >
-                {auditReport.compliant ? 'COMPLIANT (PERMITTED)' : auditReport.hasProhibitedCoLoading ? 'PROHIBITED CO-LOADING' : 'SEPARATION REQUIRED'}
+                {auditReport.hasProhibitedCoLoading ? 'Possible modeled conflict' : auditReport.unknownClassItemIds.length ? 'Incomplete class information' : 'No modeled prohibition found'}
               </span>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
-                {auditReport.totalHazmatItems} Hazmat Commodity Line(s) Audited
+                {auditReport.totalHazmatItems} label match(es) considered
               </span>
             </div>
           </div>
 
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.5 }}>
-            {auditReport.summaryMessage}
+            Classifications are unverified. No modeled conflict establishes that the load is non-hazardous or permitted.
           </div>
 
           {/* Conflict Warnings List */}
           {auditReport.conflicts.length > 0 && (
             <div>
               <h3 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px 0', color: '#1e293b' }}>
-                Identified Conflicts &amp; Regulatory Guidance
+                Modeled conflicts for qualified review
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {auditReport.conflicts.map((c, i) => (
@@ -167,7 +167,7 @@ export const HazmatSegregationModal: React.FC<HazmatSegregationModalProps> = ({
             </h3>
             {hazmatItems.length === 0 ? (
               <p style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic', margin: 0 }}>
-                No hazardous materials declared on the current load manifest.
+                No matching hazard labels found. Hazard classification has not been established.
               </p>
             ) : (
               <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -185,11 +185,11 @@ export const HazmatSegregationModal: React.FC<HazmatSegregationModalProps> = ({
                       <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontWeight: 600 }}>{item.unNumber || item.id}</td>
                       <td style={{ padding: '6px 8px' }}>
                         <span style={{ padding: '2px 6px', borderRadius: 4, background: '#fee2e2', color: '#991b1b', fontWeight: 700, fontSize: 11 }}>
-                          Class {item.classCode}
+                          {item.classCode === null ? 'Unknown' : `Class ${item.classCode}`}
                         </span>
                       </td>
                       <td style={{ padding: '6px 8px' }}>{item.description}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'monospace' }}>{item.weightLbs.toLocaleString()} lbs</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'monospace' }}>{item.weightLbs === null ? 'Not declared' : `${item.weightLbs.toLocaleString()} lbs`}</td>
                     </tr>
                   ))}
                 </tbody>

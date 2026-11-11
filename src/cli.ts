@@ -95,7 +95,7 @@ Options:
       length: 16150,
       width: 2480,
       height: 2790,
-      unit: 'm',
+      unit: 'mm',
       payload: 20400,
       massUnit: 'kg',
       doorWidth: 2430,
@@ -131,16 +131,22 @@ Options:
     if (result.arrangements.length > 0) {
       const bestArr = result.arrangements[0];
 
-      const bridge = evaluateBridgeCompliance({
+      const bridge = result.metrics.cogX == null ? null : evaluateBridgeCompliance({
         equipmentLengthMm: norm.L,
         cargoWeightKg: result.metrics.loadedWeightKg,
-        cargoCogXMm: result.metrics.cogX ?? (norm.L / 2),
+        cargoCogXMm: result.metrics.cogX,
       });
-      console.log(`Bridge Formula B Compliant: ${bridge.allCompliant ? 'YES' : 'NO'}`);
-      console.log(`Overall GVW: ${bridge.overallGvwLbs.toLocaleString()} lbs (Legal Max: ${bridge.maxLegalGvwLbs.toLocaleString()} lbs)`);
+      if (bridge) {
+        console.log(`Illustrative bridge estimate: ${bridge.allCompliant ? 'within assumed benchmarks' : 'assumed benchmark exceeded'}; actual axle and legal status unverified`);
+        console.log(`Estimated GVW: ${bridge.overallGvwLbs.toLocaleString()} lbs (assumed benchmark: ${bridge.maxLegalGvwLbs.toLocaleString()} lbs)`);
+      } else {
+        console.log('Illustrative bridge estimate unavailable: placed weight or center of gravity is unknown.');
+      }
 
       const securement = computeSecurementPlan(units, bestArr.placements);
-      console.log(`Required Tie-Downs: ${securement.totalTieDownsCount} straps/chains (Min WLL: ${securement.totalRequiredWllLbs.toLocaleString()} lbs)`);
+      console.log(securement.complete
+        ? `Illustrative restraint estimate: ${securement.totalTieDownsCount} tie-downs (modeled WLL: ${securement.totalRequiredWllLbs.toLocaleString()} lbs); actual securement unverified`
+        : 'Illustrative restraint estimate unavailable: placed units or weights are missing or unknown.');
 
       if (args.outputPath) {
         const outData = {
@@ -163,9 +169,4 @@ Options:
   }
 
   return 0;
-}
-
-if (typeof process !== 'undefined' && process.argv && process.argv[1]?.includes('cargofit')) {
-  const code = runCli(process.argv);
-  if (code !== 0) process.exit(code);
 }

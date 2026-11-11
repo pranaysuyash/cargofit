@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   auditHazmatManifest,
   evaluateHazmatPair,
+  declaredHazmatWeightLbs,
+  classFromHazardLabel,
   HazmatManifestItem,
 } from '../src/engine/hazmatSegregation';
 
@@ -65,7 +67,28 @@ describe('P01 49 CFR § 177.848 Hazardous Materials Segregation Engine', () => {
     const conflict = evaluateHazmatPair(toxicGas, flammableLiquid);
     expect(conflict).toBeDefined();
     expect(conflict!.verdict).toBe('SEPARATION_REQUIRED');
-    expect(conflict!.recommendedAction).toContain('10-ft separation');
+    expect(conflict!.recommendedAction).not.toContain('10-ft');
+    expect(conflict!.recommendedAction).toContain('verify');
+  });
+
+  it('does not invent missing weights and respects declared mass units', () => {
+    expect(declaredHazmatWeightLbs(null, 'kg')).toBeNull();
+    expect(declaredHazmatWeightLbs(1000, 'lb')).toBe(1000);
+    expect(declaredHazmatWeightLbs(1, 't')).toBe(2205);
+  });
+
+  it('does not infer a class from a UN number or default an unclassified label', () => {
+    expect(classFromHazardLabel('UN 1988 liquid')).toBeNull();
+    expect(classFromHazardLabel('unclassified hazmat')).toBeNull();
+    expect(classFromHazardLabel('Class 1.4 explosive')).toBe('1.4');
+    expect(classFromHazardLabel('Class 8 corrosive')).toBe('8');
+    const report = auditHazmatManifest([
+      { id: 'unknown', description: 'UN 1988', classCode: null, weightLbs: null },
+      { id: 'known', description: 'Class 8', classCode: '8', weightLbs: 100 },
+    ]);
+    expect(report.unknownClassItemIds).toEqual(['unknown']);
+    expect(report.summaryMessage).toContain('unknown');
+    expect(report.compliant).toBe(false);
   });
 
   it('audits an entire multi-item manifest and summarizes legal co-load status', () => {
@@ -76,6 +99,8 @@ describe('P01 49 CFR § 177.848 Hazardous Materials Segregation Engine', () => {
     const reportClean = auditHazmatManifest(cleanManifest);
     expect(reportClean.compliant).toBe(true);
     expect(reportClean.hasProhibitedCoLoading).toBe(false);
+    expect(reportClean.assessment).toBe('illustrative');
+    expect(reportClean.summaryMessage).not.toContain('comply');
 
     const illegalManifest: HazmatManifestItem[] = [
       { id: '1', description: 'Blasting Powder', classCode: '1.1', weightLbs: 1000 },
@@ -85,6 +110,7 @@ describe('P01 49 CFR § 177.848 Hazardous Materials Segregation Engine', () => {
     const reportIllegal = auditHazmatManifest(illegalManifest);
     expect(reportIllegal.compliant).toBe(false);
     expect(reportIllegal.hasProhibitedCoLoading).toBe(true);
-    expect(reportIllegal.summaryMessage).toContain('ILLEGAL CO-LOAD');
+    expect(reportIllegal.summaryMessage).toContain('MODEL INDICATES');
+    expect(reportIllegal.summaryMessage).not.toContain('ILLEGAL CO-LOAD');
   });
 });

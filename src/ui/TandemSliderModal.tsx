@@ -45,17 +45,6 @@ export const TandemSliderModal: React.FC<TandemSliderModalProps> = ({
   };
 
   const handleApply = () => {
-    try {
-      localStorage.setItem(
-        'cargo_fit_active_tandem_config',
-        JSON.stringify({
-          tandemHole,
-          fifthWheelPosition,
-          kpraFt: currentResult.kpraFt,
-          legal: currentResult.kpraCompliant && currentResult.bridgeReport.allCompliant,
-        })
-      );
-    } catch {}
     if (onApplyConfig) {
       onApplyConfig({ tandemHole, fifthWheelPosition });
     }
@@ -160,16 +149,16 @@ export const TandemSliderModal: React.FC<TandemSliderModalProps> = ({
                   marginRight: 8,
                 }}
               >
-                {currentResult.allAxlesLegal ? 'LEGAL & COMPLIANT' : 'AXLE OVERLOAD / KPRA VIOLATION'}
+                {currentResult.allAxlesLegal ? 'Within assumed benchmarks; actual status unknown' : 'Assumed benchmark exceeded; actual status unknown'}
               </span>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
-                GVW: {currentResult.totalGvwLbs.toLocaleString()} lbs
+                Estimated GVW (assumed tare and geometry): {currentResult.totalGvwLbs.toLocaleString()} lbs
               </span>
             </div>
             <div style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700 }}>
               KPRA: {currentResult.kpraFt} ft{' '}
               <span style={{ color: currentResult.kpraCompliant ? '#15803d' : '#b91c1c' }}>
-                ({currentResult.kpraCompliant ? '≤ 40.0 ft CA OK' : `> 40.0 ft CA VIOLATION`})
+                ({currentResult.kpraCompliant ? 'within assumed benchmark' : 'above assumed benchmark'})
               </span>
             </div>
           </div>

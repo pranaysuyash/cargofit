@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assessBolReadiness, buildVicsBolHtml, UNDECLARED } from '../src/engine/vicsBol';
+import { artifactScope, selectModeledArtifact } from '../src/engine/modeledArtifacts';
 import type { PlanFile } from '../src/engine/report';
 
 describe('VICS Standard Bill of Lading (BOL) Generator', () => {
@@ -61,8 +62,12 @@ describe('VICS Standard Bill of Lading (BOL) Generator', () => {
   };
 
   it('issues a final BOL only when every field is declared, weights are known and a human approved', () => {
-    const html = buildVicsBolHtml(mockPlan, fullOpts);
-    expect(assessBolReadiness(mockPlan, fullOpts).isFinal).toBe(true);
+    const plan: PlanFile = { ...mockPlan, scenario: { ...mockPlan.scenario, rows: mockPlan.placements.map((p) => ({
+      uid: p.rowUid, physicalUnitId: p.unitId, label: p.label, qty: 1, length: p.dx, width: p.dy, height: p.dz,
+      dimUnit: 'mm', weight: 100, weightUnit: 'kg', rotation: 'fixed', stackable: false,
+    })) } };
+    const html = buildVicsBolHtml(plan, fullOpts);
+    expect(assessBolReadiness(plan, fullOpts).isFinal).toBe(true);
     expect(html).toContain('Standard Bill of Lading (VICS)');
     expect(html).not.toContain('DRAFT — NOT A VALID BILL OF LADING');
     expect(html).toContain('SWIFT TRANSPORT');
@@ -83,7 +88,17 @@ describe('VICS Standard Bill of Lading (BOL) Generator', () => {
     expect(html).not.toContain('CRGO');
     expect(html).not.toMatch(/SEAL-[0-9A-F]{6}/);
     expect(html).not.toContain('Class 70');
+    expect(html).not.toContain('1-800-535-5053');
     expect(html).toContain('NO CERTIFICATION.');
+  });
+
+  it('blocks final issuance when placement weights cannot be reconciled to the manifest even if metrics claim known weights', () => {
+    const readiness = assessBolReadiness(mockPlan, fullOpts);
+    expect(readiness.isFinal).toBe(false);
+    expect(readiness.blockers.join(' ')).toContain('placed unit');
+    const html = buildVicsBolHtml(mockPlan, fullOpts);
+    expect(html).toContain('3 unit(s) weight UNKNOWN');
+    expect(html).not.toContain('18,739 lbs');
   });
 
   it('requires human approval even when all fields are declared', () => {
@@ -164,7 +179,7 @@ describe('VICS Standard Bill of Lading (BOL) Generator', () => {
     expect(html).toContain('UN1993 Flammable Liquids');
   });
 
-  it('embeds verified tandem bogie pin and NMFC classification details into the equipment bar', () => {
+  it('embeds modeled tandem bogie pin and NMFC classification details into the equipment bar', () => {
     const html = buildVicsBolHtml(mockPlan, {
       ...fullOpts,
       tandemConfig: {
@@ -181,9 +196,20 @@ describe('VICS Standard Bill of Lading (BOL) Generator', () => {
     });
     expect(html).toContain('Tandem Bogie Pin');
     expect(html).toContain('Hole #6');
-    expect(html).toContain('KPRA: 39.8ft (CA Legal)');
-    expect(html).toContain('NMFC Classification');
+    expect(html).toContain('KPRA: 39.8ft (within assumed benchmark; actual status unknown)');
+    expect(html).toContain('Illustrative Density Class');
     expect(html).toContain('Class 70 (14.5 lbs/cu ft)');
-    expect(html).toContain('DIM Penalty: +250 lbs');
+    expect(html).toContain('DIM estimate: +250 lbs');
+    expect(html).toContain('classification unverified');
+  });
+
+  it('withholds a tandem estimate from a BOL after the arrangement or scenario changes', () => {
+    const scope = artifactScope(mockPlan.scenario, mockPlan.equipmentId, 0, mockPlan.placements, 0);
+    const memory = { scope, value: { tandemHole: 6, fifthWheelPosition: 0, kpraFt: 39.8, legal: true } };
+    const forCurrent = selectModeledArtifact(null, 'tandem', memory, scope) ?? undefined;
+    expect(buildVicsBolHtml(mockPlan, { tandemConfig: forCurrent })).toContain('Tandem Bogie Pin');
+    const changed = artifactScope(mockPlan.scenario, mockPlan.equipmentId, 0, [{ ...mockPlan.placements[0], x: 1 }], 0);
+    const forChanged = selectModeledArtifact(null, 'tandem', memory, changed) ?? undefined;
+    expect(buildVicsBolHtml(mockPlan, { tandemConfig: forChanged })).not.toContain('Tandem Bogie Pin');
   });
 });

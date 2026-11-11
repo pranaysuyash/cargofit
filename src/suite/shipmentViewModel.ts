@@ -1,5 +1,6 @@
 import type { FlowEvent, FlowStage, HandlingUnit, Shipment, ShipmentInput, StageRecord } from './types';
 import { reviewedGeometryIssue } from './reviewedGeometry.mjs';
+import { carrierFreshness } from './carrierFreshness.mjs';
 
 const stageKeys: FlowStage[] = ['asset', 'fit', 'warehouse', 'yard', 'carrier', 'quote', 'hos'];
 const record = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -7,16 +8,18 @@ const finite = (value: unknown): value is number => typeof value === 'number' &&
 const positive = (value: unknown): value is number => finite(value) && value > 0;
 const nonempty = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
 
-export type StageState = 'missing' | 'stale' | 'rejected' | 'expired' | 'unknown freshness' | 'current';
+export type StageState = 'missing' | 'stale' | 'rejected' | 'indeterminate' | 'unverified' | 'expired' | 'unknown freshness' | 'current';
 export function stageState(shipment: Shipment, stage: FlowStage, now: string): StageState {
   const result = shipment.results[stage];
   if (!result) return 'missing';
   if (result.inputRevision !== shipment.inputRevision) return 'stale';
+  if (stage === 'hos' && result.details?.assessment === 'indeterminate') return 'indeterminate';
   if (!result.ok) return 'rejected';
+  if (stage === 'hos') return 'unverified';
   if (stage === 'carrier') {
-    const expiry = result.details.expiresAt;
-    if (typeof expiry !== 'string' || !finite(Date.parse(expiry)) || !finite(Date.parse(now))) return 'unknown freshness';
-    if (Date.parse(expiry) <= Date.parse(now)) return 'expired';
+    const freshness = carrierFreshness(result.details.expiresAt, now);
+    if (freshness === 'missing' || freshness === 'invalid') return 'unknown freshness';
+    if (freshness === 'expired') return 'expired';
   }
   return 'current';
 }

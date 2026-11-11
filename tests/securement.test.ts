@@ -97,15 +97,26 @@ describe('P01 Cargo Securement & Restraint Engine (49 CFR § 393.100 - § 393.13
     expect(report.unblockedForwardCount).toBe(2); // mid-02 and heavy-03
   });
 
-  it('enforces Grade 70 transport chain direct tie-downs for heavy cargo >= 10,000 lbs under § 393.126', () => {
+  it('does not infer commodity-specific chain requirements solely from weight', () => {
     const report = computeSecurementPlan(sampleUnits, samplePlacements, {
       hardwarePreference: 'strap_2in',
     });
 
     const heavyArticle = report.articles.find((a) => a.unitId === 'hu-heavy-03')!;
     expect(heavyArticle.weightLbs).toBeGreaterThan(10000);
-    expect(heavyArticle.recommendedHardware).toBe('chain_3_8_g70');
-    expect(heavyArticle.notes.some((n) => n.includes('Grade 70 transport chain'))).toBe(true);
+    expect(heavyArticle.recommendedHardware).toBe('strap_2in');
+    expect(heavyArticle.notes.join(' ')).not.toContain('mandated');
+    expect(heavyArticle.notes.join(' ')).toContain('commodity-specific');
+  });
+
+  it('only estimates placed units and exposes missing weights and unmatched placements', () => {
+    const units = [sampleUnits[0], { ...sampleUnits[1], weightKg: null }, sampleUnits[2]];
+    const placements = [samplePlacements[0], samplePlacements[1], { ...samplePlacements[2], unitId: 'missing-unit' }];
+    const report = computeSecurementPlan(units, placements);
+    expect(report.articles.map(article => article.unitId)).toEqual(['hu-nose-01']);
+    expect(report.unknownWeightUnitIds).toEqual(['hu-mid-02']);
+    expect(report.unmatchedPlacementUnitIds).toEqual(['missing-unit']);
+    expect(report.complete).toBe(false);
   });
 
   it('evaluates deck friction coefficients and statutory restraint g-forces', () => {

@@ -53,6 +53,21 @@ playwright/.cache/
 # Cloudflare / Agent / Deploy
 .wrangler/
 .agent/
+.local/
 
-# Browser automation profiles
+# Browser automation profiles & unslop captures
 **/.chrome-profile/
+**/.playwright-mcp/
+docs/evidence/.chrome-profile/
+unslop-story/
+
+# Compiled outputs alongside TS sources (do not commit)
+src/**/*.js
+tests/**/*.js
+src/**/*.js.map
+tests/**/*.js.map
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/

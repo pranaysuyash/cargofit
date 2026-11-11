@@ -411,5 +411,27 @@
         }
       ]
     }
+  },
+  {
+    "$schema": "https://trucking.platform.io/schemas/subproduct-manifest-v1.json",
+    "id": "product-09-storage-leasing",
+    "name": "Storage & Leasing Core",
+    "shortName": "Storage",
+    "code": "P09",
+    "version": "1.0.0",
+    "port": 5181,
+    "icon": "P09",
+    "description": "Storage & Leasing Core for commercial freight and logistics operations.",
+    "category": "operations",
+    "entitlementKey": "product_09_storage_leasing",
+    "shipmentClient": false,
+    "routes": {
+      "dev": "http://localhost:5181",
+      "cloud": "https://product-09-storage-leasing.pages.dev"
+    },
+    "bridges": {
+      "consumes": [],
+      "produces": []
+    }
   }
 ]

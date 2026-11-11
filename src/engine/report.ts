@@ -49,6 +49,7 @@ export interface PlanFile {
     primaryClass: string;
     densityLbsCuFt: number;
     dimWeightPenaltyLbs?: number;
+    assumptions?: { weightLbs: number; volumeCuFt: number; dimFactor: number };
   };
 }
 
@@ -70,6 +71,7 @@ export interface ExportInput {
     primaryClass: string;
     densityLbsCuFt: number;
     dimWeightPenaltyLbs?: number;
+    assumptions?: { weightLbs: number; volumeCuFt: number; dimFactor: number };
   };
 }
 
@@ -158,7 +160,7 @@ export function buildHtmlReport(plan: PlanFile): string {
   <tr><td>Steer Axle</td><td>${fmtKgDual(m.axleEst.steerKg)}</td><td>${fmtKgDual(5443)} (12,000 lb)</td><td>${m.axleEst.steerPct}%</td></tr>
   <tr><td>Drive Tandem</td><td>${fmtKgDual(m.axleEst.driveKg)}</td><td>${fmtKgDual(15422)} (34,000 lb)</td><td>${m.axleEst.drivePct}%</td></tr>
   <tr><td>Trailer Tandem</td><td>${fmtKgDual(m.axleEst.trailerKg)}</td><td>${fmtKgDual(15422)} (34,000 lb)</td><td>${m.axleEst.trailerPct}%</td></tr>
-  <tr><td>Composite Center of Gravity</td><td colspan="3">${m.cogX !== null && m.cogX !== undefined ? fmtMmDual(m.cogX) : '—'} (${m.cogXPct !== null ? fmtNum(m.cogXPct, 1) + '% of interior length' : '—'}) · ${m.cogXPct && m.cogXPct >= 45 && m.cogXPct <= 55 ? '<span class="st-verified">Within optimal 45–55% wheelbase envelope</span>' : '<span class="st-not_modeled">Outside 45–55% envelope — verify actual axle loads</span>'}</td></tr>
+  <tr><td>Composite Center of Gravity</td><td colspan="3">${m.cogX !== null && m.cogX !== undefined ? fmtMmDual(m.cogX) : '—'} (${m.cogXPct !== null ? fmtNum(m.cogXPct, 1) + '% of interior length' : '—'}) · ${m.cogXPct && m.cogXPct >= 45 && m.cogXPct <= 55 ? '<span class="st-verified">Within illustrative 45–55% interior-length reference</span>' : '<span class="st-not_modeled">Outside illustrative 45–55% interior-length reference; verify actual axle loads</span>'}</td></tr>
 </table>
 <p class="meta">Engineering estimate for standard semi-trailer / box geometry. Official axle weights must be verified with certified weighbridge scales.</p>` : '';
 
@@ -170,17 +172,17 @@ export function buildHtmlReport(plan: PlanFile): string {
 
   const securement = computeSecurementPlan(units, plan.placements);
 
-  const bridgeSection = `
-<h2>Federal Bridge Formula B &amp; Axle Group Compliance (US FMCSA 23 CFR § 658.17)</h2>
+  const bridgeSection = units.some((u) => plan.placements.some((p) => p.unitId === u.id) && u.weightKg === null) ? '<h2>Illustrative axle benchmark estimate</h2><p>Unavailable: placed cargo weight is unknown. Actual axle and legal status are unknown.</p>' : `
+<h2>Illustrative axle benchmark estimate</h2><p>Assumed vehicle tare and axle geometry are not measured. Actual axle and legal status are unknown.</p>
 <table>
-  <tr><th>Axle Group / Benchmark</th><th>Actual Weight</th><th>Allowable Cap</th><th>Margin</th><th>Status</th></tr>
+  <tr><th>Axle Group / Benchmark</th><th>Estimated Weight</th><th>Assumed Benchmark</th><th>Margin</th><th>Status</th></tr>
   ${bridge.groups.map((g) => `
     <tr>
       <td>${esc(g.name)}${g.spacingFt ? ` (${g.spacingFt} ft span)` : ''}</td>
       <td class="mono">${g.actualWeightLbs.toLocaleString()} lbs</td>
       <td class="mono">${g.maxLegalWeightLbs.toLocaleString()} lbs</td>
       <td class="mono" style="color:${g.compliant ? '#0a7a3d' : '#b30000'}">${g.marginLbs >= 0 ? '+' : ''}${g.marginLbs.toLocaleString()} lbs</td>
-      <td class="${g.compliant ? 'st-verified' : 'st-not_declared'}">${g.compliant ? 'COMPLIANT' : 'OVERLOAD'}</td>
+      <td class="${g.compliant ? 'st-verified' : 'st-not_declared'}">${g.compliant ? 'Within assumed benchmark' : 'Assumed benchmark exceeded'}</td>
     </tr>
   `).join('')}
   <tr>
@@ -188,20 +190,20 @@ export function buildHtmlReport(plan: PlanFile): string {
     <th class="mono">${bridge.overallGvwLbs.toLocaleString()} lbs</th>
     <th class="mono">80,000 lbs</th>
     <th class="mono" style="color:${bridge.gvwCompliant ? '#0a7a3d' : '#b30000'}">${bridge.gvwMarginLbs >= 0 ? '+' : ''}${bridge.gvwMarginLbs.toLocaleString()} lbs</th>
-    <th class="${bridge.gvwCompliant ? 'st-verified' : 'st-not_declared'}">${bridge.gvwCompliant ? 'COMPLIANT' : 'OVERLOAD'}</th>
+    <th class="${bridge.gvwCompliant ? 'st-verified' : 'st-not_declared'}">${bridge.gvwCompliant ? 'Within assumed benchmark' : 'Assumed benchmark exceeded'}</th>
   </tr>
 </table>
-${bridge.kpraFt !== null ? `<p class="meta">California STAA Kingpin-to-Rear-Axle (KPRA): <b>${bridge.kpraFt.toFixed(1)} ft</b> (Legal limit: 40.0 ft max) · <span class="${bridge.kpraCompliant ? 'st-verified' : 'st-not_declared'}">${bridge.kpraCompliant ? 'California Compliant' : 'Non-Compliant (Exceeds 40 ft KPRA)'}</span></p>` : ''}
+${bridge.kpraFt !== null ? `<p class="meta">Assumed Kingpin-to-Rear-Axle (KPRA): <b>${bridge.kpraFt.toFixed(1)} ft</b> (modeled benchmark: 40.0 ft; route rules may differ) · <span class="${bridge.kpraCompliant ? 'st-verified' : 'st-not_declared'}">${bridge.kpraCompliant ? 'Within assumed benchmark' : 'Assumed benchmark exceeded'}</span></p>` : ''}
 `;
 
-  const securementSection = `
-<h2>Cargo Restraint &amp; Tie-Down Plan (FMCSA 49 CFR § 393.100–136 &amp; Load Restraint Guide)</h2>
+  const securementSection = !securement.complete ? '<h2>Illustrative restraint estimate</h2><p>Unavailable: placed cargo is missing, unmatched or has unknown weight. Actual securement remains unverified.</p>' : `
+<h2>Illustrative restraint estimate</h2><p>These calculations assume friction and blocking. They are not a securement plan or determination of compliance. Qualified personnel must assess actual conditions.</p>
 <table>
-  <tr><th>Securing Metric</th><th>Value</th><th>Statutory Requirement</th></tr>
+  <tr><th>Securing Metric</th><th>Value</th><th>Model assumption</th></tr>
   <tr><td>Deck Friction Rating</td><td>${esc(securement.deckFrictionMu.toFixed(2))} μ</td><td>Wood/Steel benchmark</td></tr>
   <tr><td>Total Tie-Down Hardware</td><td><b>${securement.totalTieDownsCount} tie-down(s)</b></td><td>§ 393.110 length &amp; weight rule</td></tr>
   <tr><td>Aggregate Working Load Limit (WLL)</td><td><b>${securement.totalRequiredWllLbs.toLocaleString()} lbs</b> (${Math.round(securement.totalRequiredWllKg).toLocaleString()} kg)</td><td>≥ 50% of cargo weight (§ 393.106(d))</td></tr>
-  <tr><td>Forward Deceleration Containment (0.8g)</td><td colspan="2">${securement.unblockedForwardCount === 0 ? '<span class="st-verified">All units blocked flush against front bulkhead (0.8g supported)</span>' : `<span class="st-not_modeled">${securement.unblockedForwardCount} unit(s) unblocked forward — cross-strapping / friction mats required</span>`}</td></tr>
+  <tr><td>Geometric forward blocking indicator</td><td colspan="2">${securement.unblockedForwardCount === 0 ? '<span class="st-verified">Model found no forward-unblocked units; physical blocking and restraint are unverified</span>' : `<span class="st-not_modeled">${securement.unblockedForwardCount} unit(s) appear forward-unblocked in the model; review actual restraint</span>`}</td></tr>
 </table>
 <p class="meta">${securement.recommendations.map(esc).join(' · ')}</p>
 `;
@@ -579,7 +581,7 @@ td.mono { font-family: ui-monospace, SFMono-Regular, monospace; }
       <div class="axle-row"><span>Trailer Tandem Reaction:</span> <b class="mono">${fmtKgDual(plan.metrics.axleEst.trailerKg)} (${plan.metrics.axleEst.trailerPct}% rating)</b></div>
       <div class="axle-row" style="border-top:1px dashed #ccc;padding-top:3px;margin-top:3px;">
         <span>Statutory Bridge Formula B (23 CFR § 658.17):</span>
-        <b>${plan.metrics.axleEst.bridgeFormulaCompliant ? 'COMPLIANT (within statutory axle-group allowance)' : 'EXCEEDS inner bridge weight formula'}</b>
+        <b>${plan.metrics.axleEst.bridgeFormulaCompliant ? 'Within assumed benchmark; actual legal status unknown' : 'Assumed benchmark exceeded; actual legal status unknown'}</b>
       </div>
     ` : '<p style="color:#777;margin:0;">Axle reactions unmodeled (weight incomplete or single-axle vehicle).</p>'}
   </div>
@@ -593,7 +595,7 @@ td.mono { font-family: ui-monospace, SFMono-Regular, monospace; }
 <div class="sign-grid">
   <div class="sign-box">
     <div><b>Forklift Operator / Lead Loader</b></div>
-    <div>I certify this shipment was physically loaded in accordance with the verified sequence above.</div>
+    <div>I certify this shipment was physically loaded in accordance with the sequence shown above.</div>
     <div class="sign-line">Signature / Date</div>
   </div>
   <div class="sign-box">

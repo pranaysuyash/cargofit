@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { STAGE_LABELS, STAGE_PRODUCTS, type FlowEvent, type FlowStage, type Shipment } from './types';
 import './inspector.css';
-import { inputAtEvent } from './shipmentViewModel';
+import { inputAtEvent, stageState } from './shipmentViewModel';
 
 type InspectorTab = 'details' | 'checks' | 'history' | 'source';
 const TABS: InspectorTab[] = ['details', 'checks', 'history', 'source'];
@@ -107,7 +107,7 @@ export function ShipmentInspector({ shipment, record, onClose, onSelect }: {
       <section id={contentId} className="shipment-inspector-content" aria-label={`${label(tab)} for ${heading}`}>
         {selected === undefined && <div className="shipment-inspector-notice" role="status"><strong>{stage ? 'No decision recorded for this stage.' : 'This exact record was not found in the current shipment.'}</strong><p>Requested key: <code>{record}</code>. No other record has been substituted. Inspect the shipment or choose an existing record below.</p></div>}
         {tab === 'details' && <>
-          {record === 'shipment' ? <><StructuredValue value={{ id: shipment.id, reference: shipment.reference, mode: shipment.mode, status: shipment.status, revision: shipment.revision, inputRevision: shipment.inputRevision, input: shipment.input, exceptions: shipment.exceptions, delivery: shipment.delivery, invoice: shipment.invoice }} /><h3>Planning records</h3><div className="shipment-inspector-related">{stages.map(key => <button key={key} type="button" onClick={() => select(`stage:${key}`)}>{STAGE_LABELS[key]} · {!shipment.results[key] ? 'Missing' : shipment.results[key]!.inputRevision !== shipment.inputRevision ? 'Stale' : shipment.results[key]!.ok ? 'Recorded' : 'Rejected'}</button>)}</div></> : selected !== undefined && <StructuredValue value={selected} />}
+          {record === 'shipment' ? <><StructuredValue value={{ id: shipment.id, reference: shipment.reference, mode: shipment.mode, status: shipment.status, revision: shipment.revision, inputRevision: shipment.inputRevision, input: shipment.input, exceptions: shipment.exceptions, delivery: shipment.delivery, invoice: shipment.invoice }} /><h3>Planning records</h3><div className="shipment-inspector-related">{stages.map(key => <button key={key} type="button" onClick={() => select(`stage:${key}`)}>{STAGE_LABELS[key]} · {stageState(shipment, key, new Date().toISOString())}</button>)}</div></> : selected !== undefined && <StructuredValue value={selected} />}
           {unit && <><h3>Related shipment decisions</h3><p>These complete stage details retain all units for context. Locate original identifier <code>{unit.id}</code> when inspecting placements or assignments.</p><StructuredValue value={unitContext} /></>}
         </>}
         {tab === 'checks' && <>
@@ -115,7 +115,7 @@ export function ShipmentInspector({ shipment, record, onClose, onSelect }: {
           <p>Current input revision: <strong>{shipment.inputRevision}</strong>. A recorded decision is current only when it references this revision. These statuses describe the saved scenario.</p>
           <div className="shipment-inspector-table-wrap"><table><thead><tr><th>Decision</th><th>Status</th><th>Input revision</th><th>Summary</th></tr></thead><tbody>{(stage ? [stage] : stages).map(key => {
             const result = shipment.results[key];
-            return <tr key={key}><th><button type="button" onClick={() => select(`stage:${key}`)}>{STAGE_LABELS[key]}</button></th><td>{!result ? 'Missing' : result.inputRevision !== shipment.inputRevision ? 'Stale' : result.ok ? 'Recorded pass' : 'Rejected'}</td><td>{result?.inputRevision ?? 'Not recorded'}</td><td>{result?.summary ?? 'No saved evaluation.'}</td></tr>;
+            return <tr key={key}><th><button type="button" onClick={() => select(`stage:${key}`)}>{STAGE_LABELS[key]}</button></th><td>{stageState(shipment, key, new Date().toISOString())}</td><td>{result?.inputRevision ?? 'Not recorded'}</td><td>{result?.summary ?? 'No saved evaluation.'}</td></tr>;
           })}</tbody></table></div>
           {unit && <><h3>Unit identity and evidence</h3><StructuredValue value={{ id: unit.id, barcode: unit.barcode, barcodePresent: Boolean(unit.barcode) }} /><p>A barcode in the manifest is an identifier. Physical scanning is not established by that field. Only the separately recorded receipt describes a manually entered scenario scan.</p></>}
           <h3>Exceptions</h3>{shipment.exceptions.length ? <StructuredValue value={shipment.exceptions} /> : <p>No exceptions recorded. This does not establish that every real-world issue has been detected.</p>}

@@ -47,6 +47,10 @@ export interface ArticleSecurement {
 }
 
 export interface RestraintPlanReport {
+  /** False when a placed unit cannot be resolved or its weight is not known. */
+  complete: boolean;
+  unknownWeightUnitIds: string[];
+  unmatchedPlacementUnitIds: string[];
   deckMaterial: DeckMaterial;
   deckFrictionMu: number;
   articles: ArticleSecurement[];
@@ -83,6 +87,9 @@ export function computeSecurementPlan(
   }
 
   const articles: ArticleSecurement[] = [];
+  const unknownWeightUnitIds: string[] = [];
+  const knownUnitIds = new Set(units.map(unit => unit.id));
+  const unmatchedPlacementUnitIds = placements.filter(placement => !knownUnitIds.has(placement.unitId)).map(placement => placement.unitId);
   const hardwareSummary: Record<TieDownHardwareType, number> = {
     strap_2in: 0,
     strap_4in: 0,
@@ -94,7 +101,12 @@ export function computeSecurementPlan(
 
   for (const u of units) {
     const pl = placementMap.get(u.id);
-    const weightKg = u.weightKg ?? 100; // fallback if undeclared
+    if (!pl) continue;
+    if (u.weightKg === null || !Number.isFinite(u.weightKg) || u.weightKg <= 0) {
+      unknownWeightUnitIds.push(u.id);
+      continue;
+    }
+    const weightKg = u.weightKg;
     const weightLbs = weightKg * KG_TO_LBS;
     const lengthM = (pl ? pl.dx : u.dims[0]) / 1000;
     const lengthFt = lengthM * 3.28084;
@@ -137,22 +149,16 @@ export function computeSecurementPlan(
     const neededForWll = Math.ceil(requiredAggregateWllLbs / hw.wllLbs);
     const finalCount = Math.max(minCount, neededForWll);
 
-    // Pick recommended hardware (heavy machinery > 10,000 lbs requires chains per § 393.126)
-    let chosenHw = hardware;
-    if (weightLbs >= 10000 && !(hardware as string).startsWith('chain')) {
-      chosenHw = 'chain_3_8_g70';
-    }
-
-    hardwareSummary[chosenHw] = (hardwareSummary[chosenHw] ?? 0) + finalCount;
+    hardwareSummary[hardware] = (hardwareSummary[hardware] ?? 0) + finalCount;
 
     const notes: string[] = [];
     if (blockedForward) {
-      notes.push('Resting against front bulkhead / forward block (0.8g deceleration supported).');
+      notes.push('Model places the unit near the front bulkhead; actual blocking strength and restraint are not verified.');
     } else {
       notes.push('Uncontained forward motion; requires cross-strapping, chocking, or friction matting.');
     }
     if (weightLbs >= 10000) {
-      notes.push('Heavy cargo (≥10,000 lbs): Grade 70 transport chain direct tie-downs mandated under § 393.126.');
+      notes.push('Heavy cargo (≥10,000 lbs): commodity-specific securement requirements may apply; verify the cargo type and actual hardware with qualified personnel.');
     }
 
     articles.push({
@@ -166,7 +172,7 @@ export function computeSecurementPlan(
       minTieDownsCount: finalCount,
       requiredAggregateWllLbs: Math.round(requiredAggregateWllLbs),
       requiredAggregateWllKg: Math.round(requiredAggregateWllKg),
-      recommendedHardware: chosenHw,
+      recommendedHardware: hardware,
       hardwareCount: finalCount,
       forwardRestraintRequiredLbs: Math.round(forwardRestraintRequiredLbs),
       rearRestraintRequiredLbs: Math.round(rearRestraintRequiredLbs),
@@ -183,17 +189,20 @@ export function computeSecurementPlan(
 
   const recommendations: string[] = [
     `Deck Friction Rating: ${DECK_FRICTION_COEFFICIENTS[deck].label} (μ=${mu}).`,
-    `Total Required Restraint Hardware: ${totalTieDownsCount} tie-downs across ${articles.length} cargo articles.`,
-    `Total Minimum Working Load Limit: ${totalRequiredWllLbs.toLocaleString()} lbs (${Math.round(totalRequiredWllKg).toLocaleString()} kg).`,
+    `Illustrative hardware count: ${totalTieDownsCount} tie-downs across ${articles.length} modeled cargo articles.`,
+    `Illustrative working load limit estimate: ${totalRequiredWllLbs.toLocaleString()} lbs (${Math.round(totalRequiredWllKg).toLocaleString()} kg).`,
   ];
 
   if (unblockedCount > 0) {
     recommendations.push(
-      `${unblockedCount} cargo unit(s) are not flush against the front bulkhead. Install forward dunnage, friction mats, or x-brace ratchet straps to counteract 0.8g forward emergency braking forces.`
+      `${unblockedCount} cargo unit(s) are not flush against the front bulkhead in the model. Qualified personnel must assess actual blocking and restraint.`
     );
   }
 
   return {
+    complete: placements.length > 0 && unknownWeightUnitIds.length === 0 && unmatchedPlacementUnitIds.length === 0,
+    unknownWeightUnitIds,
+    unmatchedPlacementUnitIds,
     deckMaterial: deck,
     deckFrictionMu: mu,
     articles,

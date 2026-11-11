@@ -1,14 +1,10 @@
 /**
-/**
- * 49 CFR § 393.106 Cargo Void & Dunnage Airbag Placement Engine.
- *
- * Federal Motor Carrier Safety Administration (FMCSA) Standard:
- *  - 49 CFR § 393.106(b): Cargo must be immobilized or secured to prevent shifting
- *    forward (0.8g), rearward (0.5g), and laterally (0.5g).
- *  - When lateral or longitudinal voids exceed 6 inches (152.4 mm), void fillers,
- *    friction mats (deck friction >= 0.5 mu), or AAR/FMCSA certified inflatable
- *    dunnage air bags must be installed to prevent tipping and load shift.
+ * Illustrative cargo-void geometry heuristic. Its six-inch screening threshold,
+ * friction and dunnage suggestions are modeling assumptions, not a legal test.
+ * Actual securement requires qualified review of the cargo and equipment.
  */
+
+import type { Placement, Unit } from './types';
 
 export interface EquipmentInteriorEnvelope {
   lengthMm: number;
@@ -25,7 +21,13 @@ export interface PlacedUnitGeometry {
   dxMm: number; // Unit length
   dyMm: number; // Unit width
   dzMm: number; // Unit height
-  weightKg: number;
+  weightKg: number | null;
+}
+
+/** Weight is retained for provenance even though the current void heuristic only uses geometry. */
+export function dunnageGeometryForPlacements(placements: Placement[], units: Unit[]): PlacedUnitGeometry[] {
+  const byId = new Map(units.map(unit => [unit.id, unit]));
+  return placements.map(p => ({ unitId: p.unitId, label: p.label || 'Unit', xMm: p.x, yMm: p.y, zMm: p.z, dxMm: p.dx, dyMm: p.dy, dzMm: p.dz, weightKg: byId.get(p.unitId)?.weightKg ?? null }));
 }
 
 export interface VoidAnalysisInput {
@@ -40,7 +42,8 @@ export interface DetectedVoidRegion {
   locationDescription: string;
   gapInches: number;
   gapMm: number;
-  exceedsStatutoryThreshold: boolean; // > 6.0 inches
+  /** Legacy field: true means the illustrative six-inch threshold is exceeded. */
+  exceedsStatutoryThreshold: boolean;
   recommendedDunnage: {
     type: 'INFLATABLE_AIRBAG_LEVEL_1' | 'INFLATABLE_AIRBAG_LEVEL_2' | 'RUBBER_FRICTION_MAT' | 'VOID_PANEL';
     sizeDescription: string;
@@ -52,6 +55,7 @@ export interface DetectedVoidRegion {
 export interface DunnageComplianceReport {
   totalVoidsDetected: number;
   unsecuredVoidsCount: number;
+  /** Legacy field: true means the model found no gap above its threshold. */
   statutoryCompliant: boolean;
   deckFrictionMu: number;
   requiresFrictionMats: boolean;
@@ -64,7 +68,7 @@ export interface DunnageComplianceReport {
   regulatoryNotice: string;
 }
 
-const STATUTORY_GAP_THRESHOLD_INCHES = 6.0;
+const MODEL_GAP_THRESHOLD_INCHES = 6.0;
 const MM_PER_INCH = 25.4;
 
 export function evaluateCargoVoidsAndDunnage(input: VoidAnalysisInput): DunnageComplianceReport {
@@ -84,7 +88,7 @@ export function evaluateCargoVoidsAndDunnage(input: VoidAnalysisInput): DunnageC
         frictionMatsCount: 0,
       },
       voidRegions: [],
-      regulatoryNotice: 'Empty equipment interior. No cargo void securement required.',
+      regulatoryNotice: 'No cargo is modeled. Actual loading and securement are not assessed.',
     };
   }
 
@@ -100,7 +104,7 @@ export function evaluateCargoVoidsAndDunnage(input: VoidAnalysisInput): DunnageC
   const rearGapMm = Math.max(0, equipment.lengthMm - maxRearX);
   const rearGapInches = Number((rearGapMm / MM_PER_INCH).toFixed(1));
 
-  if (rearGapInches > STATUTORY_GAP_THRESHOLD_INCHES) {
+  if (rearGapInches > MODEL_GAP_THRESHOLD_INCHES) {
     const isDeepVoid = rearGapInches > 24.0;
     voidRegions.push({
       id: 'VOID-REAR-01',
@@ -143,7 +147,7 @@ export function evaluateCargoVoidsAndDunnage(input: VoidAnalysisInput): DunnageC
     const lateralVoidMm = equipment.widthMm - totalOccupiedWidthMm;
     const lateralVoidInches = Number((lateralVoidMm / MM_PER_INCH).toFixed(1));
 
-    if (lateralVoidInches > STATUTORY_GAP_THRESHOLD_INCHES) {
+    if (lateralVoidInches > MODEL_GAP_THRESHOLD_INCHES) {
       voidRegions.push({
         id: `VOID-LAT-${lateralVoidIndex++}`,
         type: 'LATERAL_VOID',
@@ -190,7 +194,7 @@ export function evaluateCargoVoidsAndDunnage(input: VoidAnalysisInput): DunnageC
     voidRegions,
     regulatoryNotice:
       unsecuredVoids.length > 0
-        ? `49 CFR § 393.106 VIOLATION RISK: ${unsecuredVoids.length} void gap(s) exceed statutory 6.0" maximum. Deploy designated dunnage airbags and friction mats prior to departure.`
-        : '49 CFR § 393.106 COMPLIANT: All cargo void clearances within statutory limits under 0.8g deceleration.',
+        ? `The illustrative model found ${unsecuredVoids.length} gap(s) above its six-inch screening threshold. Qualified personnel must assess actual restraint and equipment.`
+        : 'No gap exceeded the illustrative model threshold. Actual restraint and regulatory status are not assessed.',
   };
 }

@@ -62,5 +62,7 @@ describe('P01 Trailer Tandem & Fifth Wheel Pin Slider Engine', () => {
     expect(optimization.optimalHole).toBeLessThanOrEqual(12);
     expect(optimization.bestResult.allAxlesLegal).toBe(true);
     expect(optimization.bestResult.kpraCompliant).toBe(true);
+    expect(optimization.explanation).toContain('model');
+    expect(optimization.bestResult.recommendation).not.toContain('full statutory compliance');
   });
 });

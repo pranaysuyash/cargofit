@@ -23,13 +23,41 @@ export interface SavedScenario {
 
 export interface KV { getItem(k: string): string | null; setItem(k: string, v: string): void }
 
+export class SavedScenariosReadError extends Error {
+  constructor(message: string) { super(message); this.name = 'SavedScenariosReadError'; }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+// Check the structure consumed by the versions screen before allowing any write.
+// Unknown extra fields are deliberately preserved for forward compatibility.
+function isSavedScenario(value: unknown): value is SavedScenario {
+  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.name !== 'string' ||
+      typeof value.updatedAt !== 'string' || !Array.isArray(value.revisions)) return false;
+  return value.revisions.every((r: unknown) => isRecord(r) && typeof r.rev === 'number' &&
+    typeof r.savedAt === 'string' && typeof r.note === 'string' && typeof r.inputHash === 'string' &&
+    isRecord(r.scenario) && Array.isArray(r.scenario.rows) && Array.isArray(r.scenario.equipment) &&
+    isRecord(r.scenario.settings) && Array.isArray(r.summaries) && Array.isArray(r.results));
+}
+
 export function loadAll(kv: KV): SavedScenario[] {
+  let raw: string | null;
   try {
-    const raw = kv.getItem(STORE_KEY);
-    if (!raw) return [];
-    const j = JSON.parse(raw);
-    return Array.isArray(j) ? (j as SavedScenario[]) : [];
-  } catch { return []; }
+    raw = kv.getItem(STORE_KEY);
+  } catch {
+    throw new SavedScenariosReadError('Saved scenarios cannot be read from browser storage. No changes were made.');
+  }
+  if (raw === null) return [];
+  let value: unknown;
+  try { value = JSON.parse(raw); } catch {
+    throw new SavedScenariosReadError('Saved scenarios contain invalid JSON. The original data has been preserved.');
+  }
+  if (!Array.isArray(value) || !value.every(isSavedScenario)) {
+    throw new SavedScenariosReadError('Saved scenarios have an unrecognized structure. The original data has been preserved.');
+  }
+  return value;
 }
 
 /** Throws if the write fails (e.g. quota) so the UI can report honestly instead of claiming "saved". */

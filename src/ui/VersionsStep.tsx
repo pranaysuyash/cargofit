@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { buildHtmlReport, buildInteractiveHtmlReport, buildWorkOrderHtml, buildPlanFile, LIMITATIONS, placementsCsv } from '../engine/report';
 import { exportToGltf } from '../engine/gltf';
-import { generateEdi214 } from '../engine/edi214';
+import { generateEdi214, type Edi214Options } from '../engine/edi214';
 import { assessBolReadiness, buildVicsBolHtml } from '../engine/vicsBol';
 import type { BolLineDeclaration } from '../engine/vicsBol';
 import { SignaturePad } from './SignaturePad';
@@ -19,7 +19,9 @@ import {
 import { expandUnits, normalizeEquipment } from '../engine/normalize';
 import { cargoToCsv } from '../engine/csv';
 import { diffRows, diffResults, summarize } from '../engine/scenario';
-import { deleteScenario, loadAll } from '../engine/storage';
+import { deleteScenario, loadAll, STORE_KEY } from '../engine/storage';
+import { artifactScope, readLegacyModeledArtifacts, selectModeledArtifact } from '../engine/modeledArtifacts';
+import { bolReviewScope, scopedBolEvidence, type ScopedBolEvidence } from '../engine/bolReviewScope';
 import type { AppApi } from './App';
 import { StatusBadge, download, slug } from './common';
 
@@ -28,12 +30,13 @@ export function VersionsStep(p: AppApi) {
   const { scenario, results, saved, readOnly } = p;
   const [note, setNote] = useState('');
   const [cmp, setCmp] = useState<{ id: string; rev: number } | null>(null);
-  const [signatureModal, setSignatureModal] = useState<'shipper' | 'driver' | null>(null);
-  const [shipperSig, setShipperSig] = useState<string | null>(null);
-  const [driverSig, setDriverSig] = useState<string | null>(null);
+  const [signatureModal, setSignatureModal] = useState<{ role: 'shipper' | 'driver'; scope: string } | null>(null);
+  const [shipperEvidence, setShipperEvidence] = useState<ScopedBolEvidence<string> | null>(null);
+  const [driverEvidence, setDriverEvidence] = useState<ScopedBolEvidence<string> | null>(null);
   const [bol, setBol] = useState<Partial<Record<'carrierName' | 'scac' | 'shipperName' | 'shipperAddress' | 'shipperCityStateZip' | 'consigneeName' | 'consigneeAddress' | 'consigneeCityStateZip' | 'trailerNumber' | 'sealNumber' | 'proNumber' | 'specialInstructions' | 'emergencyPhone', string>>>({});
   const [bolLines, setBolLines] = useState<Record<string, BolLineDeclaration>>({});
-  const [bolApproved, setBolApproved] = useState(false);
+  const [approvedScope, setApprovedScope] = useState<string | null>(null);
+  const [edi, setEdi] = useState({ carrierScac: '', shipperId: '', shipmentId: '', bolNumber: '', sealNumber: '', equipmentId: '', statusCode: '', statusReason: '', originCity: '', originState: '', date: '', controlNumber: '', usageIndicator: '', reportedWeightLbs: '', reportedPieceCount: '' });
   const fileRef = useRef<HTMLInputElement>(null);
 
   const plannable = results.filter((r) => r.arrangements.length > 0);
@@ -42,22 +45,17 @@ export function VersionsStep(p: AppApi) {
   const key = result ? `${result.equipmentId}:${arrIdx}` : '';
   const edited = !!(key && p.edits[key]);
   const ready = !!result && !p.stale && p.solver.state.phase === 'done';
+  let legacyArtifacts: ReturnType<typeof readLegacyModeledArtifacts> | null = null;
+  try { legacyArtifacts = readLegacyModeledArtifacts(window.localStorage); } catch {}
 
   const makePlan = () => {
     if (!result) return null;
     const placements = (key && p.edits[key]) || result.arrangements[arrIdx].placements;
-    let activeTandemConfig: any = p.tandemConfig;
-    let activeNmfcSummary: any = p.nmfcSummary;
-    try {
-      if (!activeTandemConfig) {
-        const tRaw = localStorage.getItem('cargo_fit_active_tandem_config');
-        if (tRaw) activeTandemConfig = JSON.parse(tRaw);
-      }
-      if (!activeNmfcSummary) {
-        const nRaw = localStorage.getItem('cargo_fit_active_nmfc_summary');
-        if (nRaw) activeNmfcSummary = JSON.parse(nRaw);
-      }
-    } catch {}
+    const scope = artifactScope(scenario, result.equipmentId, arrIdx, placements, 0);
+    let storage: Storage | null = null;
+    try { storage = window.localStorage; } catch {}
+    const activeTandemConfig = selectModeledArtifact(storage, 'tandem', p.tandemConfig, scope);
+    const activeNmfcSummary = selectModeledArtifact(storage, 'nmfc', p.nmfcSummary, scope);
     return buildPlanFile({
       scenario,
       result,
@@ -65,10 +63,15 @@ export function VersionsStep(p: AppApi) {
       arrangementName: result.arrangements[arrIdx].name,
       edited,
       inputHash: p.hash,
-      tandemConfig: activeTandemConfig,
-      nmfcSummary: activeNmfcSummary,
+      tandemConfig: activeTandemConfig ?? undefined,
+      nmfcSummary: activeNmfcSummary ?? undefined,
     });
   };
+  const reviewPlan = ready ? makePlan() : null;
+  const currentBolScope = reviewPlan ? bolReviewScope(reviewPlan, bol, bolLines) : null;
+  const bolApproved = currentBolScope !== null && approvedScope === currentBolScope;
+  const shipperSig = scopedBolEvidence(shipperEvidence, currentBolScope);
+  const driverSig = scopedBolEvidence(driverEvidence, currentBolScope);
   const exportAs = (kind: 'json' | 'csv' | 'html' | 'open' | 'interactive' | 'workorder' | 'gltf' | 'edi214' | 'vicsbol') => {
     if (!ready) { p.notify('warn', 'Plans are stale or still computing. Wait until “Plans up to date”, then export.'); return; }
     const plan = makePlan();
@@ -80,27 +83,26 @@ export function VersionsStep(p: AppApi) {
     if (kind === 'html') ok = download(`${base}.report.html`, buildHtmlReport(plan), 'text/html');
     if (kind === 'interactive') ok = download(`${base}.interactive-3d.html`, buildInteractiveHtmlReport(plan), 'text/html');
     if (kind === 'edi214') {
-      const ediText = generateEdi214(plan);
-      ok = download(`${base}.status.214.edi`, ediText, 'application/edi-x12');
+      try {
+        const ediText = generateEdi214(plan, {
+          ...edi,
+          statusCode: edi.statusCode as Edi214Options['statusCode'],
+          usageIndicator: edi.usageIndicator as Edi214Options['usageIndicator'],
+          date: edi.date ? new Date(edi.date) : undefined,
+          reportedWeightLbs: edi.reportedWeightLbs.trim() ? Number(edi.reportedWeightLbs) : undefined,
+          reportedPieceCount: edi.reportedPieceCount.trim() ? Number(edi.reportedPieceCount) : undefined,
+        });
+        ok = download(`${base}.status.214.edi`, ediText, 'application/edi-x12');
+      } catch (error) {
+        p.notify('err', `Enter the EDI 214 event details: ${(error as Error).message}`);
+        return;
+      }
     }
     if (kind === 'vicsbol') {
-      let activeTandemConfig: any = p.tandemConfig;
-      let activeNmfcSummary: any = p.nmfcSummary;
-      try {
-        if (!activeTandemConfig) {
-          const tRaw = localStorage.getItem('cargo_fit_active_tandem_config');
-          if (tRaw) activeTandemConfig = JSON.parse(tRaw);
-        }
-        if (!activeNmfcSummary) {
-          const nRaw = localStorage.getItem('cargo_fit_active_nmfc_summary');
-          if (nRaw) activeNmfcSummary = JSON.parse(nRaw);
-        }
-      } catch {}
-
       const bolHtml = buildVicsBolHtml(plan, {
         ...bol,
-        tandemConfig: activeTandemConfig,
-        nmfcSummary: activeNmfcSummary,
+        tandemConfig: plan.tandemConfig,
+        nmfcSummary: plan.nmfcSummary,
         lineDeclarations: bolLines,
         humanApproved: bolApproved,
         shipperSignatureDataUrl: shipperSig || undefined,
@@ -151,6 +153,14 @@ export function VersionsStep(p: AppApi) {
         <div><p className="eyebrow">Step 05</p><h1 id="h-ver">Save, version & export</h1>
           <p className="sub">Saving stores a revision in <b>this browser</b> (localStorage) and verifies the write. Sharing is by file: nothing is uploaded and there is no share link.</p></div>
       </div>
+      <p className="muted small">Tandem and density estimates are exported only when their recorded scenario, equipment and arrangement match. Older unscoped browser estimates remain stored but are not used.</p>
+      {(legacyArtifacts?.tandemRaw !== null && legacyArtifacts?.tandemRaw !== undefined || legacyArtifacts?.nmfcRaw !== null && legacyArtifacts?.nmfcRaw !== undefined) && <button className="btn sm" onClick={() => {
+        try {
+          const raw = readLegacyModeledArtifacts(window.localStorage);
+          const ok = download('cargo-fit-legacy-estimates.json', JSON.stringify({ format: 'cargo-fit-legacy-estimates', ...raw }, null, 2), 'application/json');
+          p.notify(ok ? 'ok' : 'err', ok ? 'Downloaded legacy estimate data for review; current plans are unchanged.' : 'Legacy estimate download failed.');
+        } catch { p.notify('err', 'Legacy estimate data could not be read. It remains in browser storage.'); }
+      }}>Download legacy estimates for review</button>}
 
       <div className="two-col">
         <div className="panel">
@@ -181,15 +191,15 @@ export function VersionsStep(p: AppApi) {
                 </button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('json')}>Plan file (JSON)</button>
                 <button className="btn" disabled={!ready} onClick={() => exportAs('csv')}>Placements (CSV)</button>
-                <button className="btn" disabled={!ready} onClick={() => exportAs('edi214')} title="Export ANSI X12 EDI 214 Carrier Shipment Status Message with Seal Verification">
+                <button className="btn" disabled={!ready} onClick={() => exportAs('edi214')} title="Export an EDI 214 using the event details entered below">
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><IconRadio size={14} /> EDI 214 Status</span>
                 </button>
-                <button className="btn sm" disabled={!ready} onClick={() => setSignatureModal('driver')} title="Sign digitally on glass as driver">
+                <button className="btn sm" disabled={!currentBolScope} onClick={() => currentBolScope && setSignatureModal({ role: 'driver', scope: currentBolScope })} title="Sign digitally on glass as driver">
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     {driverSig ? <><IconCheck size={12} /> Driver Signed</> : 'Driver Sign on Glass'}
                   </span>
                 </button>
-                <button className="btn sm" disabled={!ready} onClick={() => setSignatureModal('shipper')} title="Sign digitally on glass as shipper">
+                <button className="btn sm" disabled={!currentBolScope} onClick={() => currentBolScope && setSignatureModal({ role: 'shipper', scope: currentBolScope })} title="Sign digitally on glass as shipper">
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     {shipperSig ? <><IconCheck size={12} /> Shipper Signed</> : 'Shipper Sign'}
                   </span>
@@ -217,21 +227,53 @@ export function VersionsStep(p: AppApi) {
                 <button className="btn" onClick={() => { const ok = download(`${slug(scenario.name)}.cargo.csv`, cargoToCsv(scenario.rows), 'text/csv'); p.notify(ok ? 'ok' : 'err', ok ? 'Manifest CSV downloaded.' : 'Download failed.'); }}>Manifest (CSV)</button>
               </div>
               <details className="bol-details">
+                <summary>EDI 214 event and trading partner details</summary>
+                <p className="muted small">Enter the actual event and partner identifiers. A load plan does not establish shipment status, seal condition or equipment identity. Confirm the generated file against your trading partner's requirements.</p>
+                {([
+                  ['carrierScac', 'Carrier SCAC'], ['shipperId', 'Receiver identifier'], ['shipmentId', 'Shipment identifier'],
+                  ['bolNumber', 'Bill of lading number'], ['controlNumber', 'Nine-digit interchange control number'],
+                  ['statusReason', 'Status reason code'], ['originCity', 'Event city'], ['originState', 'Event US state (two letters)'],
+                  ['sealNumber', 'Seal number (optional)'], ['equipmentId', 'Equipment identifier (optional)'],
+                  ['reportedWeightLbs', 'Reported gross weight in lb (optional)'], ['reportedPieceCount', 'Reported piece count (optional)'],
+                ] as const).map(([key, label]) => <label key={key} className="small" style={{ display: 'block' }}>{label}
+                  <input value={edi[key]} onChange={event => setEdi(current => ({ ...current, [key]: event.target.value }))} style={{ width: '100%' }} />
+                </label>)}
+                <label className="small" style={{ display: 'block' }}>Event time (your local time)
+                  <input type="datetime-local" value={edi.date} onChange={event => setEdi(current => ({ ...current, date: event.target.value }))} />
+                </label>
+                <label className="small" style={{ display: 'block' }}>Shipment status
+                  <select value={edi.statusCode} onChange={event => setEdi(current => ({ ...current, statusCode: event.target.value }))}>
+                    <option value="">Select status</option><option value="X3">Arrived at pickup</option><option value="AF">Departed with shipment</option><option value="AG">Estimated arrival</option><option value="X6">En route</option><option value="D1">Unloaded at delivery</option>
+                  </select>
+                </label>
+                <label className="small" style={{ display: 'block' }}>Trading partner usage
+                  <select value={edi.usageIndicator} onChange={event => setEdi(current => ({ ...current, usageIndicator: event.target.value }))}>
+                    <option value="">Select usage</option><option value="T">Test</option><option value="P">Production</option>
+                  </select>
+                </label>
+              </details>
+              <details className="bol-details">
                 <summary>Bill of Lading details (required to issue a final BOL; nothing is invented)</summary>
-                {(['carrierName', 'scac', 'proNumber', 'shipperName', 'shipperAddress', 'shipperCityStateZip', 'consigneeName', 'consigneeAddress', 'consigneeCityStateZip', 'trailerNumber', 'sealNumber', 'emergencyPhone', 'specialInstructions'] as const).map((k) => (
-                  <label key={k} className="small" style={{ display: 'block' }}>{k}
+                {([
+                  ['carrierName', 'Carrier name'], ['scac', 'Carrier SCAC'], ['proNumber', 'PRO number'],
+                  ['shipperName', 'Shipper name'], ['shipperAddress', 'Shipper address'], ['shipperCityStateZip', 'Shipper city, state and ZIP'],
+                  ['consigneeName', 'Consignee name'], ['consigneeAddress', 'Consignee address'], ['consigneeCityStateZip', 'Consignee city, state and ZIP'],
+                  ['trailerNumber', 'Trailer number'], ['sealNumber', 'Seal number'], ['emergencyPhone', 'Emergency phone'], ['specialInstructions', 'Special instructions'],
+                ] as const).map(([k, label]) => (
+                  <label key={k} className="small" style={{ display: 'block' }}>{label}
                     <input value={bol[k] ?? ''} onChange={(ev) => setBol({ ...bol, [k]: ev.target.value })} style={{ width: '100%' }} />
                   </label>
                 ))}
                 {Array.from(new Set(makePlan()?.placements.map((pl) => pl.label) ?? [])).map((label) => (
-                  <div key={label} className="small">
-                    <b>{label}</b>{' '}
-                    <input placeholder="NMFC" value={bolLines[label]?.nmfc ?? ''} onChange={(ev) => setBolLines({ ...bolLines, [label]: { ...bolLines[label], nmfc: ev.target.value } })} />{' '}
-                    <input placeholder="Class" value={bolLines[label]?.freightClass ?? ''} onChange={(ev) => setBolLines({ ...bolLines, [label]: { ...bolLines[label], freightClass: ev.target.value } })} />{' '}
-                    <input placeholder="Pkg type" value={bolLines[label]?.packageType ?? ''} onChange={(ev) => setBolLines({ ...bolLines, [label]: { ...bolLines[label], packageType: ev.target.value } })} />
-                  </div>
+                  <fieldset key={label} className="small">
+                    <legend>{label}</legend>
+                    <label>NMFC number <input aria-label={`${label}: NMFC number`} value={bolLines[label]?.nmfc ?? ''} onChange={(ev) => setBolLines({ ...bolLines, [label]: { ...bolLines[label], nmfc: ev.target.value } })} /></label>{' '}
+                    <label>Freight class <input aria-label={`${label}: Freight class`} value={bolLines[label]?.freightClass ?? ''} onChange={(ev) => setBolLines({ ...bolLines, [label]: { ...bolLines[label], freightClass: ev.target.value } })} /></label>{' '}
+                    <label>Package type <input aria-label={`${label}: Package type`} value={bolLines[label]?.packageType ?? ''} onChange={(ev) => setBolLines({ ...bolLines, [label]: { ...bolLines[label], packageType: ev.target.value } })} /></label>
+                  </fieldset>
                 ))}
-                <label className="small"><input type="checkbox" checked={bolApproved} onChange={(ev) => setBolApproved(ev.target.checked)} /> I have verified these details and approve issuing this as a Bill of Lading</label>
+                <label className="small"><input type="checkbox" checked={bolApproved} disabled={!currentBolScope} onChange={(ev) => setApprovedScope(ev.target.checked ? currentBolScope : null)} /> I have verified these details and approve issuing this as a Bill of Lading</label>
+                <p className="muted small">Changes to the plan or document details require a new review and signatures.</p>
               </details>
               {!ready && <p className="note warn">Exports unlock when plans are up to date.</p>}
               <p className="muted small">Exports include inputs, item IDs, coordinates, equipment profile and sources, metrics, validator output, engine version, timestamp and the limitations below.</p>
@@ -246,13 +288,26 @@ export function VersionsStep(p: AppApi) {
       </div>
 
       <div className="panel">
-        <div className="panel-h"><b>Saved scenarios in this browser</b><span>{saved.length} scenario(s)</span></div>
-        {saved.length === 0 ? <p className="muted">Nothing saved yet.</p> : (
+        <div className="panel-h"><b>Saved scenarios in this browser</b><span>{p.storageError ? 'Unavailable' : `${saved.length} scenario(s)`}</span></div>
+        {p.storageError ? <div role="alert"><p>{p.storageError} Saving and deletion remain blocked until the stored data can be read.</p>
+          <button className="btn sm" onClick={() => {
+            try {
+              const raw = window.localStorage.getItem(STORE_KEY);
+              if (raw === null) { p.notify('warn', 'No saved data was found to download.'); return; }
+              const ok = download('cargofit-saved-scenarios-recovery.txt', raw, 'text/plain');
+              p.notify(ok ? 'ok' : 'err', ok ? 'Recovery download requested. Check your downloads.' : 'Recovery download failed in this browser.');
+            } catch { p.notify('err', 'Browser storage could not be read for recovery.'); }
+          }}>Download original saved data</button>{' '}
+          <button className="btn sm" onClick={() => {
+            try { p.setSaved(loadAll(window.localStorage)); p.setStorageError(null); p.notify('ok', 'Saved scenarios read successfully.'); }
+            catch (e) { p.setStorageError((e as Error).message); }
+          }}>Retry reading</button>
+        </div> : saved.length === 0 ? <p className="muted">Nothing saved yet.</p> : (
           <div className="saved">
             {saved.map((s) => (
               <article key={s.id} className={s.id === p.currentId ? 'cur' : ''}>
                 <header><b>{s.name}</b><span className="muted small">updated {new Date(s.updatedAt).toLocaleString()}</span>
-                  <button className="btn sm ghost danger" onClick={() => { if (window.confirm(`Delete “${s.name}” and all ${s.revisions.length} revision(s) from this browser?`)) { deleteScenario(window.localStorage, s.id); p.setSaved(loadAll(window.localStorage)); p.notify('ok', 'Scenario deleted from this browser.'); } }}>Delete</button></header>
+                  <button className="btn sm ghost danger" onClick={() => { if (window.confirm(`Delete “${s.name}” and all ${s.revisions.length} revision(s) from this browser?`)) { try { deleteScenario(window.localStorage, s.id); p.setSaved(loadAll(window.localStorage)); p.notify('ok', 'Scenario deleted from this browser.'); } catch (e) { p.setStorageError((e as Error).message); p.notify('err', `Could not delete: ${(e as Error).message}`); } } }}>Delete</button></header>
                 <ul>
                   {s.revisions.slice().reverse().map((r) => (
                     <li key={r.rev}>
@@ -282,12 +337,12 @@ export function VersionsStep(p: AppApi) {
 
       {signatureModal && (
         <SignaturePad
-          title={signatureModal === 'driver' ? 'Driver Acceptance Signature (Sign on Glass)' : 'Shipper Release Signature (Sign on Glass)'}
+          title={signatureModal.role === 'driver' ? 'Driver Acceptance Signature (Sign on Glass)' : 'Shipper Release Signature (Sign on Glass)'}
           onSave={(dataUrl) => {
-            if (signatureModal === 'driver') setDriverSig(dataUrl);
-            else setShipperSig(dataUrl);
+            if (signatureModal.role === 'driver') setDriverEvidence({ scope: signatureModal.scope, value: dataUrl });
+            else setShipperEvidence({ scope: signatureModal.scope, value: dataUrl });
             setSignatureModal(null);
-            p.notify('ok', `${signatureModal === 'driver' ? 'Driver' : 'Shipper'} digital signature captured and embedded into VICS BOL.`);
+            p.notify('ok', `${signatureModal.role === 'driver' ? 'Driver' : 'Shipper'} signature captured for this document version.`);
           }}
           onCancel={() => setSignatureModal(null)}
         />

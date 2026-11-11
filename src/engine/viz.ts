@@ -245,7 +245,7 @@ export function renderIso(ctx: VizCtx): string {
     body += poly([P(minOx, minOy, 0), P(maxOx, minOy, 0), P(maxOx, maxOy, 0), P(minOx, maxOy, 0)],
       'oklch(0.55 0.12 145)', 'oklch(0.50 0.14 145)', 1, ' stroke-dasharray="4 2"', 0.12);
     const optMid = P((minOx + maxOx) / 2, (minOy + maxOy) / 2, 0).split(',');
-    body += `<text x="${optMid[0]}" y="${Number(optMid[1]) + 4}" text-anchor="middle" font-size="9" font-family="JetBrains Mono" font-weight="600" fill="oklch(0.48 0.14 145)" letter-spacing="0.05em">OPTIMAL CoG TARGET (45-55% L)</text>`;
+    body += `<text x="${optMid[0]}" y="${Number(optMid[1]) + 4}" text-anchor="middle" font-size="9" font-family="JetBrains Mono" font-weight="600" fill="oklch(0.48 0.14 145)" letter-spacing="0.05em">ILLUSTRATIVE CoG REFERENCE (45-55% L)</text>`;
   }
 
   // 4. Longitudinal Cutaway (sliceX) plane marker if active

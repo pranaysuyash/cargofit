@@ -49,18 +49,19 @@ export interface VicsBolOptions {
   shipperSignatureDataUrl?: string;
   driverSignatureDataUrl?: string;
   emergencyPhone?: string;
-  /** Verified Tandem Bogie Pin slider configuration and California STAA KPRA. */
+  /** Modeled tandem configuration; actual axle and route status are not verified. */
   tandemConfig?: {
     tandemHole: number;
     fifthWheelPosition: number;
     kpraFt?: number;
     legal: boolean;
   };
-  /** Certified NMFC Freight Density Classification and DIM Weight. */
+  /** Illustrative density classification; operator line declarations remain separate. */
   nmfcSummary?: {
     primaryClass: string;
     densityLbsCuFt: number;
     dimWeightPenaltyLbs?: number;
+    assumptions?: { weightLbs: number; volumeCuFt: number; dimFactor: number };
   };
   /** Per-label operator declarations (NMFC, class, package type, hazmat confirmation). */
   lineDeclarations?: Record<string, BolLineDeclaration>;
@@ -92,6 +93,18 @@ export interface BolReadiness {
   blockers: string[];
 }
 
+function placedWeight(plan: PlanFile): { knownKg: number; unknown: number } {
+  const weights = new Map(expandUnits(plan.scenario.rows).map((unit) => [unit.id, unit.weightKg]));
+  let knownKg = 0;
+  let unknown = 0;
+  for (const placement of plan.placements) {
+    const weight = weights.get(placement.unitId);
+    if (weight === null || weight === undefined) unknown++;
+    else knownKg += weight;
+  }
+  return { knownKg, unknown };
+}
+
 /** Computes whether a document may be issued as a final BOL, and why not. */
 export function assessBolReadiness(plan: PlanFile, opts: VicsBolOptions = {}): BolReadiness {
   const blockers: string[] = [];
@@ -107,6 +120,8 @@ export function assessBolReadiness(plan: PlanFile, opts: VicsBolOptions = {}): B
   ];
   for (const [name, v] of required) if (!isDeclared(v)) blockers.push(`${name} not declared`);
   if (plan.metrics.unknownWeightUnits > 0) blockers.push(`${plan.metrics.unknownWeightUnits} unit(s) have unknown weight`);
+  const manifestWeight = placedWeight(plan);
+  if (manifestWeight.unknown > 0) blockers.push(`${manifestWeight.unknown} placed unit(s) have unknown or unreconciled manifest weight`);
   if (!plan.validation.passed) blockers.push('Geometric validation reported violations');
   if (plan.unplacedUnitIds.length > 0) blockers.push(`${plan.unplacedUnitIds.length} unit(s) not placed`);
   const labels = new Set(plan.placements.map((p) => p.label));
@@ -145,8 +160,9 @@ export function buildVicsBolHtml(plan: PlanFile, opts: VicsBolOptions = {}): str
   const unitWeightKg = new Map<string, number | null>();
   for (const u of expandUnits(plan.scenario.rows)) unitWeightKg.set(u.id, u.weightKg);
   const toLbs = (kg: number) => Math.round(kg * 2.20462);
-  const unknownTotal = plan.metrics.unknownWeightUnits;
-  const totalWeightLbs = toLbs(plan.metrics.loadedWeightKg);
+  const manifestWeight = placedWeight(plan);
+  const unknownTotal = manifestWeight.unknown;
+  const totalWeightLbs = toLbs(manifestWeight.knownKg);
   const totalWeightText = unknownTotal > 0
     ? `≥ ${totalWeightLbs.toLocaleString()} lbs (${unknownTotal} unit(s) weight UNKNOWN)`
     : `${totalWeightLbs.toLocaleString()} lbs`;
@@ -422,8 +438,8 @@ export function buildVicsBolHtml(plan: PlanFile, opts: VicsBolOptions = {}): str
       <div class="carrier-cell"><b>Equipment Spec</b> ${e(eqName)}</div>
       <div class="carrier-cell"><b>Total Handling Units</b> ${totalLoadedPieces} Handling Unit(s)</div>
       <div class="carrier-cell"><b>Total Gross Weight</b> ${e(totalWeightText)}</div>
-      ${opts.tandemConfig ? `<div class="carrier-cell"><b>Tandem Bogie Pin</b> Hole #${opts.tandemConfig.tandemHole}${opts.tandemConfig.kpraFt ? ` · KPRA: ${opts.tandemConfig.kpraFt.toFixed(1)}ft (${opts.tandemConfig.legal ? 'CA Legal' : 'CA Non-Compliant'})` : ''}</div>` : ''}
-      ${opts.nmfcSummary ? `<div class="carrier-cell"><b>NMFC Classification</b> Class ${e(opts.nmfcSummary.primaryClass)} (${opts.nmfcSummary.densityLbsCuFt.toFixed(1)} lbs/cu ft)${opts.nmfcSummary.dimWeightPenaltyLbs ? ` · DIM Penalty: +${opts.nmfcSummary.dimWeightPenaltyLbs.toLocaleString()} lbs` : ''}</div>` : ''}
+      ${opts.tandemConfig ? `<div class="carrier-cell"><b>Tandem Bogie Pin</b> Hole #${opts.tandemConfig.tandemHole}${opts.tandemConfig.kpraFt ? ` · KPRA: ${opts.tandemConfig.kpraFt.toFixed(1)}ft (${opts.tandemConfig.legal ? 'within assumed benchmark; actual status unknown' : 'assumed benchmark exceeded; actual status unknown'})` : ''}</div>` : ''}
+      ${opts.nmfcSummary ? `<div class="carrier-cell"><b>Illustrative Density Class</b> Class ${e(opts.nmfcSummary.primaryClass)} (${opts.nmfcSummary.densityLbsCuFt.toFixed(1)} lbs/cu ft)${opts.nmfcSummary.dimWeightPenaltyLbs ? ` · DIM estimate: +${opts.nmfcSummary.dimWeightPenaltyLbs.toLocaleString()} lbs` : ''}; classification unverified</div>` : ''}
     </div>
 
     <!-- Commodities Table -->

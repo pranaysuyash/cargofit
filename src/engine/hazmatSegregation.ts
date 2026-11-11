@@ -3,6 +3,13 @@
  * Validates highway transport co-loading compatibility across DOT HazMat placard classes.
  */
 
+import { fromKg, toKg } from './units';
+import type { MassUnit } from './types';
+
+export function declaredHazmatWeightLbs(weight: number | null, unit: MassUnit): number | null {
+  return weight === null || !Number.isFinite(weight) || weight <= 0 ? null : Math.round(fromKg(toKg(weight, unit), 'lb'));
+}
+
 export type HazmatClassCode =
   | '1.1' // Explosives (mass explosion)
   | '1.2' // Explosives (projection hazard)
@@ -23,17 +30,25 @@ export type HazmatClassCode =
   | '8'   // Corrosive liquids & solids
   | '9';  // Miscellaneous hazardous materials
 
+const supportedClasses = new Set<HazmatClassCode>(['1.1', '1.2', '1.3', '1.4', '1.5', '2.1', '2.2', '2.3', '3', '4.1', '4.2', '4.3', '5.1', '5.2', '6.1', '7', '8', '9']);
+
+/** Extract only an explicit class label; the label itself remains unverified. */
+export function classFromHazardLabel(label: string): HazmatClassCode | null {
+  const value = /\bclass\s*([1-9](?:\.\d+)?)\b/i.exec(label)?.[1];
+  return value && supportedClasses.has(value as HazmatClassCode) ? value as HazmatClassCode : null;
+}
+
 export type SegregationVerdict = 'PERMITTED' | 'SEPARATION_REQUIRED' | 'PROHIBITED';
 
 export interface HazmatManifestItem {
   id: string;
   description: string;
-  classCode: HazmatClassCode;
+  classCode: HazmatClassCode | null;
   unNumber?: string; // e.g. "UN1263", "UN1760"
   isCyanide?: boolean;
   isAcid?: boolean;
   isLiquid?: boolean;
-  weightLbs: number;
+  weightLbs: number | null;
 }
 
 export interface HazmatConflictRecord {
@@ -48,6 +63,9 @@ export interface HazmatConflictRecord {
 }
 
 export interface HazmatAuditReport {
+  assessment: 'illustrative';
+  unknownClassItemIds: string[];
+  /** Legacy model flag only; this is not a legal compliance determination. */
   compliant: boolean;
   totalHazmatItems: number;
   hasProhibitedCoLoading: boolean;
@@ -60,7 +78,7 @@ export interface HazmatAuditReport {
  * 49 CFR § 177.848(e) Segregation Table Matrix
  * Key: `${classA}:${classB}`
  * 'X' = Prohibited co-loading
- * 'O' = Separation required (must not commingle; 10ft separation recommended)
+ * 'O' = Illustrative segregation flag; applicable rules and packaging need review.
  */
 const SEGREGATION_MATRIX: Record<string, 'X' | 'O'> = {
   // Class 1.1/1.2 prohibitions
@@ -114,6 +132,7 @@ export function evaluateHazmatPair(
   itemA: HazmatManifestItem,
   itemB: HazmatManifestItem
 ): HazmatConflictRecord | null {
+  if (itemA.classCode === null || itemB.classCode === null) return null;
   // Special statutory rule: Cyanides vs Acids (49 CFR § 177.848(c))
   if ((itemA.isCyanide && itemB.isAcid) || (itemA.isAcid && itemB.isCyanide)) {
     return {
@@ -123,8 +142,8 @@ export function evaluateHazmatPair(
       classB: itemB.classCode,
       verdict: 'PROHIBITED',
       cfrCitation: '49 CFR § 177.848(c)',
-      description: 'Cyanide or cyanide mixtures may not be loaded with acids due to lethal hydrocyanic / hydrogen cyanide gas generation.',
-      recommendedAction: 'Remove item from vehicle and dispatch on segregated transport.',
+      description: 'The modeled labels suggest cyanide and acid; their mixture may generate hazardous gas.',
+      recommendedAction: 'Have qualified personnel verify the materials, reaction risk and applicable restrictions before transport.',
     };
   }
 
@@ -137,8 +156,8 @@ export function evaluateHazmatPair(
       classB: itemB.classCode,
       verdict: 'SEPARATION_REQUIRED',
       cfrCitation: '49 CFR § 177.848(e)(3)',
-      description: 'Class 8 corrosive liquids must not be loaded above Class 4 or Class 5 materials.',
-      recommendedAction: 'Position Class 8 liquid on the floor, separated by at least 10 feet or non-combustible dunnage.',
+      description: 'The model indicates a possible corrosive-liquid and Class 4 or 5 segregation issue; actual classifications and exceptions require review.',
+      recommendedAction: 'Have qualified personnel verify the materials, packaging, applicable restrictions, and actual loading arrangement.',
     };
   }
 
@@ -153,8 +172,8 @@ export function evaluateHazmatPair(
       classB: itemB.classCode,
       verdict: 'PROHIBITED',
       cfrCitation: '49 CFR § 177.848(e) Table',
-      description: `Class ${itemA.classCode} and Class ${itemB.classCode} are strictly prohibited from co-loading on the same vehicle.`,
-      recommendedAction: 'Strict prohibition ("X"): These materials must be separated into different vehicles.',
+      description: `The simplified model flags Class ${itemA.classCode} and Class ${itemB.classCode} as a possible prohibited pair.`,
+      recommendedAction: 'Have qualified personnel verify exact classifications, subsidiary hazards, packaging and applicable rules.',
     };
   }
 
@@ -166,8 +185,8 @@ export function evaluateHazmatPair(
       classB: itemB.classCode,
       verdict: 'SEPARATION_REQUIRED',
       cfrCitation: '49 CFR § 177.848(e) Table',
-      description: `Class ${itemA.classCode} and Class ${itemB.classCode} require spatial segregation ("O").`,
-      recommendedAction: 'Maintain a minimum 10-ft separation or install non-combustible intervening bulkhead.',
+      description: `The simplified model flags Class ${itemA.classCode} and Class ${itemB.classCode} for possible segregation.`,
+      recommendedAction: 'Have qualified personnel verify classification, packaging and segregation that prevents commingling under applicable rules.',
     };
   }
 
@@ -191,16 +210,20 @@ export function auditHazmatManifest(items: HazmatManifestItem[]): HazmatAuditRep
 
   const hasProhibited = conflicts.some((c) => c.verdict === 'PROHIBITED');
   const hasSeparation = conflicts.some((c) => c.verdict === 'SEPARATION_REQUIRED');
+  const unknownClassItemIds = items.filter(item => item.classCode === null).map(item => item.id);
 
-  let summaryMessage = 'All hazardous materials on manifest comply with 49 CFR § 177.848 co-loading rules.';
+  let summaryMessage = 'No modeled conflict found. Classification, packaging and legal compliance are not established.';
   if (hasProhibited) {
-    summaryMessage = `ILLEGAL CO-LOAD DETECTED: ${conflicts.filter((c) => c.verdict === 'PROHIBITED').length} strict prohibitions found under 49 CFR § 177.848. Vehicle dispatch must be blocked.`;
+    summaryMessage = `MODEL INDICATES ${conflicts.filter((c) => c.verdict === 'PROHIBITED').length} possible prohibited pair(s); qualified review is required.`;
   } else if (hasSeparation) {
-    summaryMessage = `CONDITIONAL SEGREGATION REQUIRED: ${conflicts.length} pairs require minimum 10-ft spatial buffering or bulkhead isolation.`;
+    summaryMessage = `MODEL INDICATES POSSIBLE SEGREGATION: ${conflicts.length} pairs need qualified review of classification, packaging and applicable rules.`;
   }
+  if (unknownClassItemIds.length) summaryMessage += ` ${unknownClassItemIds.length} item(s) have unknown class and were not compared.`;
 
   return {
-    compliant: !hasProhibited,
+    assessment: 'illustrative',
+    unknownClassItemIds,
+    compliant: !hasProhibited && unknownClassItemIds.length === 0,
     totalHazmatItems: items.length,
     hasProhibitedCoLoading: hasProhibited,
     hasSeparationRequired: hasSeparation,

@@ -88,15 +88,15 @@ export function simulateTandemSlide(
   const kpraCompliant = kpraFt <= kpraMaxFt;
   const allAxlesLegal = bridgeReport.allCompliant && kpraCompliant;
 
-  let recommendation = 'Tandem and fifth wheel positions achieve full statutory compliance.';
+  let recommendation = 'The position is within assumed model benchmarks. Actual axle loads and legal status require independent verification.';
   if (!kpraCompliant) {
-    recommendation = `KPRA of ${kpraFt} ft exceeds California statutory limit of ${kpraMaxFt} ft. Slide tandem forward (higher hole number).`;
+    recommendation = `Modeled KPRA of ${kpraFt} ft exceeds the assumed ${kpraMaxFt} ft benchmark. Review actual geometry and applicable route rules before changing the tandem.`;
   } else if (driveGroup && !driveGroup.compliant) {
-    recommendation = `Drive tandem overloaded (${driveWeightLbs.toLocaleString()} lbs > ${driveGroup.maxLegalWeightLbs.toLocaleString()} lbs). Slide trailer tandem forward (higher hole number) to shift weight to trailer.`;
+    recommendation = `Estimated drive tandem load (${driveWeightLbs.toLocaleString()} lbs) exceeds the assumed ${driveGroup.maxLegalWeightLbs.toLocaleString()} lb benchmark. Review actual axle weights and vehicle configuration.`;
   } else if (trailerGroup && !trailerGroup.compliant) {
-    recommendation = `Trailer tandem overloaded (${trailerWeightLbs.toLocaleString()} lbs > ${trailerGroup.maxLegalWeightLbs.toLocaleString()} lbs). Slide trailer tandem rearward (lower hole number) to shift weight to drives.`;
+    recommendation = `Estimated trailer tandem load (${trailerWeightLbs.toLocaleString()} lbs) exceeds the assumed ${trailerGroup.maxLegalWeightLbs.toLocaleString()} lb benchmark. Review actual axle weights and vehicle configuration.`;
   } else if (steerGroup && !steerGroup.compliant) {
-    recommendation = `Steer axle overloaded (${steerWeightLbs.toLocaleString()} lbs). Slide fifth wheel rearward.`;
+    recommendation = `Estimated steer axle load (${steerWeightLbs.toLocaleString()} lbs) exceeds an assumed benchmark. Review actual axle weights and vehicle configuration.`;
   }
 
   return {
@@ -145,7 +145,7 @@ export function solveOptimalTandemPosition(input: VehicleGeometryInput): TandemO
             feasible: true,
             bestResult: res,
             allHoleResults,
-            explanation: `Solved legal bridge compliance at Tandem Pin Hole #${hole} with Fifth Wheel Position ${fw > 0 ? '+' + fw : fw}.`,
+            explanation: `Within model benchmarks at Tandem Pin Hole #${hole} with Fifth Wheel Position ${fw > 0 ? '+' + fw : fw}; actual status is unverified.`,
           };
         }
       }
@@ -159,7 +159,7 @@ export function solveOptimalTandemPosition(input: VehicleGeometryInput): TandemO
       feasible: false,
       bestResult: fallback,
       allHoleResults,
-      explanation: 'No legal pin combination found under current cargo weight and CG. Cargo must be physically repositioned or lightened.',
+      explanation: 'No pin combination met the assumed model benchmarks. Review actual cargo, axle weights and vehicle configuration.',
     };
   }
 
@@ -169,6 +169,6 @@ export function solveOptimalTandemPosition(input: VehicleGeometryInput): TandemO
     feasible: true,
     bestResult,
     allHoleResults,
-    explanation: `Optimal legal setting: Tandem Pin Hole #${optimalHole} (KPRA: ${bestResult.kpraFt} ft, Drive: ${bestResult.driveWeightLbs.toLocaleString()} lbs, Trailer: ${bestResult.trailerWeightLbs.toLocaleString()} lbs).`,
+    explanation: `First setting within model benchmarks: Tandem Pin Hole #${optimalHole} (modeled KPRA: ${bestResult.kpraFt} ft, Drive: ${bestResult.driveWeightLbs.toLocaleString()} lbs, Trailer: ${bestResult.trailerWeightLbs.toLocaleString()} lbs). Actual status is unverified.`,
   };
 }

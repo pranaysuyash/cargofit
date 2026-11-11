@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { readFileSync as Ae, writeFileSync as ue } from "node:fs";
+import { readFileSync as Fe, writeFileSync as ue } from "node:fs";
 import { resolve as re } from "node:path";
-const Te = { mm: 1, cm: 10, m: 1e3, in: 25.4, ft: 304.8 }, We = { kg: 1, lb: 0.45359237, t: 1e3 }, Ne = (t) => Math.round(t * 100) / 100, P = (t, e) => Ne(t * Te[e]), Me = (t, e) => Math.round(t * We[e] * 1e4) / 1e4;
+const Ae = { mm: 1, cm: 10, m: 1e3, in: 25.4, ft: 304.8 }, Pe = { kg: 1, lb: 0.45359237, t: 1e3 }, Ue = (t) => Math.round(t * 100) / 100, W = (t, e) => Ue(t * Ae[e]), xe = (t, e) => Math.round(t * Pe[e] * 1e4) / 1e4;
 function ge(t) {
   const e = t.trim().toLowerCase().replace(/\./g, "");
   return {
@@ -48,23 +48,23 @@ function me(t) {
     mt: "t"
   }[e] ?? null;
 }
-let Oe = 0;
-const Pe = (t = "r") => `${t}${Date.now().toString(36)}${(Oe++).toString(36)}`;
-function Re(t) {
-  const e = t.split(/\r?\n/).find((n) => n.trim()) ?? "", o = [",", ";", "	"].map((n) => [n, e.split(n).length - 1]);
-  return o.sort((n, l) => l[1] - n[1]), o[0][1] > 0 ? o[0][0] : ",";
+let Ne = 0;
+const Te = (t = "r") => `${t}${Date.now().toString(36)}${(Ne++).toString(36)}`;
+function We(t) {
+  const e = t.split(/\r?\n/).find((o) => o.trim()) ?? "", n = [",", ";", "	"].map((o) => [o, e.split(o).length - 1]);
+  return n.sort((o, a) => a[1] - o[1]), n[0][1] > 0 ? n[0][0] : ",";
 }
-function Ue(t, e) {
-  const o = [];
-  let n = [], l = "", r = !1;
-  const d = t.replace(/^\uFEFF/, "");
-  for (let i = 0; i < d.length; i++) {
-    const u = d[i];
-    r ? u === '"' ? d[i + 1] === '"' ? (l += '"', i++) : r = !1 : l += u : u === '"' ? r = !0 : u === e ? (n.push(l), l = "") : u === `
-` || u === "\r" ? (u === "\r" && d[i + 1] === `
-` && i++, n.push(l), l = "", n.some((s) => s.trim() !== "") && o.push(n), n = []) : l += u;
+function Oe(t, e) {
+  const n = [];
+  let o = [], a = "", u = !1;
+  const s = t.replace(/^\uFEFF/, "");
+  for (let r = 0; r < s.length; r++) {
+    const d = s[r];
+    u ? d === '"' ? s[r + 1] === '"' ? (a += '"', r++) : u = !1 : a += d : d === '"' ? u = !0 : d === e ? (o.push(a), a = "") : d === `
+` || d === "\r" ? (d === "\r" && s[r + 1] === `
+` && r++, o.push(a), a = "", o.some((i) => i.trim() !== "") && n.push(o), o = []) : a += d;
   }
-  return n.push(l), n.some((i) => i.trim() !== "") && o.push(n), o;
+  return o.push(a), o.some((r) => r.trim() !== "") && n.push(o), n;
 }
 const he = {
   label: ["label", "id", "name", "sku", "item", "identifier", "description", "itemid"],
@@ -79,460 +79,461 @@ const he = {
   stackable: ["stackable", "stack", "canstack"],
   stop: ["stop", "drop", "destination", "droporder", "unloadorder", "stopnum", "stopnumber"]
 }, pe = (t) => t.toLowerCase().replace(/\([^)]*\)/g, "").replace(/[^a-z0-9]/g, "");
-function Ke(t) {
+function Re(t) {
   const e = t.trim();
   if (e === "") return null;
-  const o = e.replace(/,(?=\d{3}(\D|$))/g, "").replace(",", "."), n = Number(o);
-  return Number.isFinite(n) ? n : "bad";
+  const n = e.replace(/,(?=\d{3}(\D|$))/g, "").replace(",", "."), o = Number(n);
+  return Number.isFinite(o) ? o : "bad";
 }
-function ze(t, e = ",") {
-  const o = [];
+function Ke(t, e = ",") {
+  const n = [];
   if (t.length === 0)
     return { rows: [], issues: [{ line: 0, field: "file", severity: "error", message: "File is empty." }], delimiter: e, totalLines: 0 };
-  const n = t[0], l = /* @__PURE__ */ new Map();
-  let r = null, d = null;
-  n.forEach((s, a) => {
-    const m = pe(s);
+  const o = t[0], a = /* @__PURE__ */ new Map();
+  let u = null, s = null;
+  o.forEach((i, l) => {
+    const p = pe(i);
     for (const f of Object.keys(he))
-      !l.has(f) && he[f].includes(m) && l.set(f, a);
-    const g = /\(([^)]+)\)/.exec(s)?.[1];
+      !a.has(f) && he[f].includes(p) && a.set(f, l);
+    const g = /\(([^)]+)\)/.exec(i)?.[1];
     if (g) {
-      const f = pe(s);
-      ["length", "width", "height", "l", "w", "h"].includes(f) && (r ??= ge(g)), ["weight", "wt", "mass"].includes(f) && (d ??= me(g));
+      const f = pe(i);
+      ["length", "width", "height", "l", "w", "h"].includes(f) && (u ??= ge(g)), ["weight", "wt", "mass"].includes(f) && (s ??= me(g));
     }
   });
-  for (const s of ["label", "length", "width", "height"])
-    l.has(s) || o.push({ line: 1, field: s, severity: "error", message: `Required column "${s}" not found. Headers seen: ${n.join(", ")}` });
-  if (o.some((s) => s.severity === "error")) return { rows: [], issues: o, delimiter: e, totalLines: t.length - 1 };
-  l.has("qty") || o.push({ line: 1, field: "qty", severity: "info", message: "No quantity column — each row counted as 1." }), !l.has("unit") && !r && o.push({ line: 1, field: "unit", severity: "warning", message: "No dimension unit column — assuming millimetres. Check each row." }), l.has("weight") && !l.has("wunit") && !d && o.push({ line: 1, field: "weight", severity: "warning", message: "No weight unit column — assuming kilograms. Check each row." });
-  const i = (s, a) => l.has(a) ? s[l.get(a)] ?? "" : "", u = [];
-  for (let s = 1; s < t.length; s++) {
-    const a = t[s], m = s + 1;
-    a.length > n.length && a.slice(n.length).some((h) => h.trim()) && o.push({ line: m, field: "row", severity: "warning", message: `Row has ${a.length} cells but header has ${n.length}; extra cells ignored.` });
-    const g = (h) => {
-      const C = Ke(i(a, h));
-      return C === "bad" ? (o.push({ line: m, field: h, severity: "error", message: `Could not read "${i(a, h).trim()}" as a number — left empty for you to repair.` }), null) : C;
+  for (const i of ["label", "length", "width", "height"])
+    a.has(i) || n.push({ line: 1, field: i, severity: "error", message: `Required column "${i}" not found. Headers seen: ${o.join(", ")}` });
+  if (n.some((i) => i.severity === "error")) return { rows: [], issues: n, delimiter: e, totalLines: t.length - 1 };
+  a.has("qty") || n.push({ line: 1, field: "qty", severity: "info", message: "No quantity column — each row counted as 1." }), !a.has("unit") && !u && n.push({ line: 1, field: "unit", severity: "warning", message: "No dimension unit column — assuming millimetres. Check each row." }), a.has("weight") && !a.has("wunit") && !s && n.push({ line: 1, field: "weight", severity: "warning", message: "No weight unit column — assuming kilograms. Check each row." });
+  const r = (i, l) => a.has(l) ? i[a.get(l)] ?? "" : "", d = [];
+  for (let i = 1; i < t.length; i++) {
+    const l = t[i], p = i + 1;
+    l.length > o.length && l.slice(o.length).some((m) => m.trim()) && n.push({ line: p, field: "row", severity: "warning", message: `Row has ${l.length} cells but header has ${o.length}; extra cells ignored.` });
+    const g = (m) => {
+      const S = Re(r(l, m));
+      return S === "bad" ? (n.push({ line: p, field: m, severity: "error", message: `Could not read "${r(l, m).trim()}" as a number — left empty for you to repair.` }), null) : S;
     };
-    let f = r ?? "mm";
-    const L = i(a, "unit").trim();
+    let f = u ?? "mm";
+    const L = r(l, "unit").trim();
     if (L) {
-      const h = ge(L);
-      h ? f = h : o.push({ line: m, field: "unit", severity: "error", message: `Unknown dimension unit "${L}" — assumed ${f}; please confirm.` });
+      const m = ge(L);
+      m ? f = m : n.push({ line: p, field: "unit", severity: "error", message: `Unknown dimension unit "${L}" — assumed ${f}; please confirm.` });
     }
-    let y = d ?? "kg";
-    const I = i(a, "wunit").trim();
-    if (I) {
-      const h = me(I);
-      h ? y = h : o.push({ line: m, field: "wunit", severity: "error", message: `Unknown weight unit "${I}" — assumed ${y}; please confirm.` });
+    let x = s ?? "kg";
+    const C = r(l, "wunit").trim();
+    if (C) {
+      const m = me(C);
+      m ? x = m : n.push({ line: p, field: "wunit", severity: "error", message: `Unknown weight unit "${C}" — assumed ${x}; please confirm.` });
     }
-    const $ = l.has("qty") ? g("qty") : 1;
-    let M = "upright";
-    const p = i(a, "rotation").trim().toLowerCase();
-    p ? ["any", "free", "all", "yes", "y", "true", "6"].includes(p) ? M = "any" : ["upright", "yaw", "tsu", "this side up", "flat", "2"].includes(p) ? M = "upright" : ["fixed", "none", "no", "n", "false", "1", "locked"].includes(p) ? M = "fixed" : o.push({ line: m, field: "rotation", severity: "warning", message: `Unknown rotation "${p}" — using upright (yaw only).` }) : l.has("rotation") && o.push({ line: m, field: "rotation", severity: "info", message: "Blank rotation — defaulted to upright (conservative)." });
-    let b = !1;
-    const c = i(a, "stackable").trim().toLowerCase();
-    c ? ["yes", "y", "true", "1", "stackable"].includes(c) ? b = !0 : ["no", "n", "false", "0", "no-stack", "nostack", "fragile"].includes(c) ? b = !1 : o.push({ line: m, field: "stackable", severity: "warning", message: `Unknown stackable value "${c}" — treated as no-stack.` }) : l.has("stackable") && o.push({ line: m, field: "stackable", severity: "info", message: "Blank stackable — treated as no-stack (conservative)." });
-    const x = l.has("stop") ? g("stop") : null, v = x !== null && x > 0 ? Math.round(x) : null;
-    u.push({
-      uid: Pe(),
-      label: i(a, "label").trim(),
-      qty: $,
+    const k = a.has("qty") ? g("qty") : 1;
+    let b = "upright";
+    const h = r(l, "rotation").trim().toLowerCase();
+    h ? ["any", "free", "all", "yes", "y", "true", "6"].includes(h) ? b = "any" : ["upright", "yaw", "tsu", "this side up", "flat", "2"].includes(h) ? b = "upright" : ["fixed", "none", "no", "n", "false", "1", "locked"].includes(h) ? b = "fixed" : n.push({ line: p, field: "rotation", severity: "warning", message: `Unknown rotation "${h}" — using upright (yaw only).` }) : a.has("rotation") && n.push({ line: p, field: "rotation", severity: "info", message: "Blank rotation — defaulted to upright (conservative)." });
+    let y = !1;
+    const c = r(l, "stackable").trim().toLowerCase();
+    c ? ["yes", "y", "true", "1", "stackable"].includes(c) ? y = !0 : ["no", "n", "false", "0", "no-stack", "nostack", "fragile"].includes(c) ? y = !1 : n.push({ line: p, field: "stackable", severity: "warning", message: `Unknown stackable value "${c}" — treated as no-stack.` }) : a.has("stackable") && n.push({ line: p, field: "stackable", severity: "info", message: "Blank stackable — treated as no-stack (conservative)." });
+    const I = a.has("stop") ? g("stop") : null, M = I !== null && I > 0 ? Math.round(I) : null;
+    d.push({
+      uid: Te(),
+      label: r(l, "label").trim(),
+      qty: k,
       length: g("length"),
       width: g("width"),
       height: g("height"),
       dimUnit: f,
-      weight: l.has("weight") ? g("weight") : null,
-      weightUnit: y,
-      rotation: M,
-      stackable: b,
-      stop: v
+      weight: a.has("weight") ? g("weight") : null,
+      weightUnit: x,
+      rotation: b,
+      stackable: y,
+      stop: M
     });
   }
-  return { rows: u, issues: o, delimiter: e, totalLines: t.length - 1 };
+  return { rows: d, issues: n, delimiter: e, totalLines: t.length - 1 };
 }
+function ze(t) {
+  const e = We(t), n = Oe(t, e);
+  return Ke(n, e);
+}
+const le = 5e3, K = (t) => t !== null && Number.isFinite(t) && t > 0;
 function He(t) {
-  const e = Re(t), o = Ue(t, e);
-  return ze(o, e);
-}
-const le = 5e3, U = (t) => t !== null && Number.isFinite(t) && t > 0;
-function Be(t) {
-  const e = [], o = /* @__PURE__ */ new Map(), n = (r, d, i, u, s) => e.push({ severity: d, scope: "cargo", rowUid: r.uid, field: i, code: u, message: s });
-  let l = 0;
-  for (const r of t) {
-    const d = r.label.trim();
-    if (!d) n(r, "error", "label", "LABEL_MISSING", "Identifier is required.");
-    else {
-      const i = d.toLowerCase();
-      o.has(i) ? n(r, "error", "label", "DUPLICATE_LABEL", `Duplicate identifier "${d}" — merge the rows or rename one.`) : o.set(i, r.uid);
+  const e = [], n = /* @__PURE__ */ new Map(), o = /* @__PURE__ */ new Set(), a = (s, r, d, i, l) => e.push({ severity: r, scope: "cargo", rowUid: s.uid, field: d, code: i, message: l });
+  let u = 0;
+  for (const s of t) {
+    const r = s.label.trim();
+    if (!r) a(s, "error", "label", "LABEL_MISSING", "Identifier is required.");
+    else if (s.physicalUnitId === void 0) {
+      const d = r.toLowerCase();
+      n.has(d) ? a(s, "error", "label", "DUPLICATE_LABEL", `Duplicate identifier "${r}" — merge the rows or rename one.`) : n.set(d, s.uid);
     }
-    if (r.qty === null || !Number.isInteger(r.qty) || r.qty < 1 ? n(r, "error", "qty", "QTY_INVALID", "Quantity must be a whole number ≥ 1.") : l += r.qty, ["length", "width", "height"].forEach((i) => {
-      const u = r[i];
-      u === null ? n(r, "error", i, "DIM_MISSING", `${i} is missing — never guessed. Enter or measure it.`) : (!Number.isFinite(u) || u <= 0) && n(r, "error", i, "DIM_NONPOSITIVE", `${i} must be > 0 (got ${u}).`);
-    }), r.weight === null ? n(r, "warning", "weight", "WEIGHT_UNKNOWN", "Weight unknown — payload checks cannot be completed for this row.") : (!Number.isFinite(r.weight) || r.weight <= 0) && n(r, "error", "weight", "WEIGHT_NONPOSITIVE", `weight must be > 0 (got ${r.weight}); leave empty if unknown.`), U(r.length) && U(r.width) && U(r.height)) {
-      const i = [P(r.length, r.dimUnit), P(r.width, r.dimUnit), P(r.height, r.dimUnit)];
-      Math.max(...i) > 2e4 && n(r, "warning", "length", "DIM_IMPLAUSIBLE", `Longest side is ${Math.round(Math.max(...i))} mm — check the unit.`), Math.min(...i) < 5 && n(r, "warning", "length", "DIM_IMPLAUSIBLE", "Shortest side is under 5 mm — check the unit.");
+    if (s.physicalUnitId !== void 0 && (s.physicalUnitId.trim() ? o.has(s.physicalUnitId) && a(s, "error", "physicalUnitId", "DUPLICATE_PHYSICAL_ID", "Each registered physical unit must appear exactly once.") : a(s, "error", "physicalUnitId", "PHYSICAL_ID_MISSING", "A registered physical unit needs its original manifest identity."), o.add(s.physicalUnitId), s.qty !== 1 && a(s, "error", "qty", "PHYSICAL_QTY_INVALID", "A registered physical unit must have quantity 1. Register additional identities in the manifest workflow.")), s.qty === null || !Number.isInteger(s.qty) || s.qty < 1 ? a(s, "error", "qty", "QTY_INVALID", "Quantity must be a whole number ≥ 1.") : u += s.qty, ["length", "width", "height"].forEach((d) => {
+      const i = s[d];
+      i === null ? a(s, "error", d, "DIM_MISSING", `${d} is missing — never guessed. Enter or measure it.`) : (!Number.isFinite(i) || i <= 0) && a(s, "error", d, "DIM_NONPOSITIVE", `${d} must be > 0 (got ${i}).`);
+    }), s.weight === null ? a(s, "warning", "weight", "WEIGHT_UNKNOWN", "Weight unknown — payload checks cannot be completed for this row.") : (!Number.isFinite(s.weight) || s.weight <= 0) && a(s, "error", "weight", "WEIGHT_NONPOSITIVE", `weight must be > 0 (got ${s.weight}); leave empty if unknown.`), K(s.length) && K(s.width) && K(s.height)) {
+      const d = [W(s.length, s.dimUnit), W(s.width, s.dimUnit), W(s.height, s.dimUnit)];
+      Math.max(...d) > 2e4 && a(s, "warning", "length", "DIM_IMPLAUSIBLE", `Longest side is ${Math.round(Math.max(...d))} mm — check the unit.`), Math.min(...d) < 5 && a(s, "warning", "length", "DIM_IMPLAUSIBLE", "Shortest side is under 5 mm — check the unit.");
     }
   }
-  return t.length === 0 && e.push({ severity: "error", scope: "cargo", rowUid: "", field: "rows", code: "NO_CARGO", message: "Add at least one cargo row." }), l > le && e.push({ severity: "error", scope: "cargo", rowUid: "", field: "qty", code: "TOO_MANY_UNITS", message: `Total ${l} units exceeds the ${le} unit limit.` }), e;
+  return t.length === 0 && e.push({ severity: "error", scope: "cargo", rowUid: "", field: "rows", code: "NO_CARGO", message: "Add at least one cargo row." }), u > le && e.push({ severity: "error", scope: "cargo", rowUid: "", field: "qty", code: "TOO_MANY_UNITS", message: `Total ${u} units exceeds the ${le} unit limit.` }), e;
 }
-function Ge(t) {
+function Be(t) {
   const e = [];
-  for (const o of t) {
-    const n = (l, r, d, i) => e.push({ severity: l, scope: "equipment", rowUid: o.id, field: r, code: d, message: i });
-    ["length", "width", "height"].forEach((l) => {
-      U(o[l]) || n("error", l, "DIM_INVALID", `Internal ${l} must be a number > 0.`);
-    }), o.payload === null ? n("warning", "payload", "PAYLOAD_NOT_DECLARED", "No payload declared — weight limit is not modeled.") : o.payload <= 0 && n("error", "payload", "PAYLOAD_INVALID", "Payload must be > 0."), o.doorWidth === null || o.doorHeight === null ? n("warning", "door", "DOOR_NOT_DECLARED", "No door opening declared — door fit is not modeled.") : (o.doorWidth <= 0 || o.doorHeight <= 0) && n("error", "door", "DOOR_INVALID", "Door dimensions must be > 0."), o.cost !== null && o.cost < 0 && n("error", "cost", "COST_INVALID", "Cost cannot be negative.");
+  for (const n of t) {
+    const o = (a, u, s, r) => e.push({ severity: a, scope: "equipment", rowUid: n.id, field: u, code: s, message: r });
+    ["length", "width", "height"].forEach((a) => {
+      K(n[a]) || o("error", a, "DIM_INVALID", `Internal ${a} must be a number > 0.`);
+    }), n.payload === null ? o("warning", "payload", "PAYLOAD_NOT_DECLARED", "No payload declared — weight limit is not modeled.") : n.payload <= 0 && o("error", "payload", "PAYLOAD_INVALID", "Payload must be > 0."), n.doorWidth === null || n.doorHeight === null ? o("warning", "door", "DOOR_NOT_DECLARED", "No door opening declared — door fit is not modeled.") : (n.doorWidth <= 0 || n.doorHeight <= 0) && o("error", "door", "DOOR_INVALID", "Door dimensions must be > 0."), n.cost !== null && n.cost < 0 && o("error", "cost", "COST_INVALID", "Cost cannot be negative.");
   }
   return e;
 }
-function Ie(t) {
+function Me(t) {
   const e = [];
-  for (const o of t) {
-    if (!U(o.length) || !U(o.width) || !U(o.height) || o.qty === null || o.qty < 1) continue;
-    const n = [
-      P(o.length, o.dimUnit),
-      P(o.width, o.dimUnit),
-      P(o.height, o.dimUnit)
-    ], l = o.weight !== null && o.weight > 0 ? Me(o.weight, o.weightUnit) : null;
-    for (let r = 1; r <= o.qty; r++)
+  for (const n of t) {
+    if (!K(n.length) || !K(n.width) || !K(n.height) || n.qty === null || n.qty < 1) continue;
+    const o = [
+      W(n.length, n.dimUnit),
+      W(n.width, n.dimUnit),
+      W(n.height, n.dimUnit)
+    ], a = n.weight !== null && n.weight > 0 ? xe(n.weight, n.weightUnit) : null;
+    for (let u = 1; u <= n.qty; u++)
       if (e.push({
-        id: o.qty === 1 ? o.label.trim() : `${o.label.trim()}#${r}`,
-        rowUid: o.uid,
-        label: o.label.trim(),
-        dims: n,
-        weightKg: l,
-        rotation: o.rotation,
-        stackable: o.stackable,
-        stop: o.stop ?? null
+        id: n.physicalUnitId ?? (n.qty === 1 ? n.label.trim() : `${n.label.trim()}#${u}`),
+        ...n.barcode !== void 0 ? { barcode: n.barcode } : {},
+        rowUid: n.uid,
+        label: n.label.trim(),
+        dims: o,
+        weightKg: a,
+        rotation: n.rotation,
+        stackable: n.stackable,
+        stop: n.stop ?? null
       }), e.length > le) return e;
   }
   return e;
 }
 function ve(t) {
-  if (!U(t.length) || !U(t.width) || !U(t.height)) return null;
+  if (!K(t.length) || !K(t.width) || !K(t.height)) return null;
   const e = t.doorWidth !== null && t.doorHeight !== null && t.doorWidth > 0 && t.doorHeight > 0;
   return {
     id: t.id,
     name: t.name,
-    L: P(t.length, t.unit),
-    W: P(t.width, t.unit),
-    H: P(t.height, t.unit),
-    doorW: e ? P(t.doorWidth, t.unit) : null,
-    doorH: e ? P(t.doorHeight, t.unit) : null,
-    payloadKg: t.payload !== null && t.payload > 0 ? Me(t.payload, t.massUnit) : null
+    L: W(t.length, t.unit),
+    W: W(t.width, t.unit),
+    H: W(t.height, t.unit),
+    doorW: e ? W(t.doorWidth, t.unit) : null,
+    doorH: e ? W(t.doorHeight, t.unit) : null,
+    payloadKg: t.payload !== null && t.payload > 0 ? xe(t.payload, t.massUnit) : null
   };
 }
-const w = 0.01, fe = (t) => [...t].sort((e, o) => e - o), R = (t, e) => Math.abs(t - e) <= w;
-function Ve(t, e, o, n) {
-  const [l, r, d] = t.dims;
-  if (t.rotation === "fixed") return R(e, l) && R(o, r) && R(n, d);
+const w = 0.01, fe = (t) => [...t].sort((e, n) => e - n), R = (t, e) => Math.abs(t - e) <= w;
+function Ge(t, e, n, o) {
+  const [a, u, s] = t.dims;
+  if (t.rotation === "fixed") return R(e, a) && R(n, u) && R(o, s);
   if (t.rotation === "upright")
-    return R(n, d) && (R(e, l) && R(o, r) || R(e, r) && R(o, l));
-  const i = fe([l, r, d]), u = fe([e, o, n]);
-  return i.every((s, a) => R(s, u[a]));
+    return R(o, s) && (R(e, a) && R(n, u) || R(e, u) && R(n, a));
+  const r = fe([a, u, s]), d = fe([e, n, o]);
+  return r.every((i, l) => R(i, d[l]));
 }
-function Xe(t, e, o, n) {
-  const l = [], r = new Map(t.map((s) => [s.id, s])), d = /* @__PURE__ */ new Set(), i = n.minSupportPct / 100;
-  for (const s of o) {
-    const a = r.get(s.unitId);
-    if (!a) {
-      l.push({ code: "UNKNOWN_UNIT", unitIds: [s.unitId], message: `Placement refers to unknown unit ${s.unitId}.` });
+function Ve(t, e, n, o) {
+  const a = [], u = new Map(t.map((i) => [i.id, i])), s = /* @__PURE__ */ new Set(), r = o.minSupportPct / 100;
+  for (const i of n) {
+    const l = u.get(i.unitId);
+    if (!l) {
+      a.push({ code: "UNKNOWN_UNIT", unitIds: [i.unitId], message: `Placement refers to unknown unit ${i.unitId}.` });
       continue;
     }
-    d.has(s.unitId) && l.push({ code: "DUPLICATE_PLACEMENT", unitIds: [s.unitId], message: `${s.unitId} is placed more than once.` }), d.add(s.unitId), (s.x < -w || s.y < -w || s.z < -w || s.x + s.dx > e.L + w || s.y + s.dy > e.W + w || s.z + s.dz > e.H + w) && l.push({ code: "OUT_OF_BOUNDS", unitIds: [s.unitId], message: `${s.unitId} extends outside the ${e.name} interior.` }), Ve(a, s.dx, s.dy, s.dz) || l.push({ code: "ORIENTATION_NOT_ALLOWED", unitIds: [s.unitId], message: `${s.unitId} is in an orientation its rotation rule (${a.rotation}) does not allow.` }), e.doorW !== null && e.doorH !== null && (s.dy > e.doorW + w || s.dz > e.doorH + w) && l.push({ code: "DOOR_BLOCKED", unitIds: [s.unitId], message: `${s.unitId} cross-section ${Math.round(s.dy)}×${Math.round(s.dz)} mm exceeds the door opening ${Math.round(e.doorW)}×${Math.round(e.doorH)} mm in its placed orientation.` });
+    s.has(i.unitId) && a.push({ code: "DUPLICATE_PLACEMENT", unitIds: [i.unitId], message: `${i.unitId} is placed more than once.` }), s.add(i.unitId), (i.x < -w || i.y < -w || i.z < -w || i.x + i.dx > e.L + w || i.y + i.dy > e.W + w || i.z + i.dz > e.H + w) && a.push({ code: "OUT_OF_BOUNDS", unitIds: [i.unitId], message: `${i.unitId} extends outside the ${e.name} interior.` }), Ge(l, i.dx, i.dy, i.dz) || a.push({ code: "ORIENTATION_NOT_ALLOWED", unitIds: [i.unitId], message: `${i.unitId} is in an orientation its rotation rule (${l.rotation}) does not allow.` }), e.doorW !== null && e.doorH !== null && (i.dy > e.doorW + w || i.dz > e.doorH + w) && a.push({ code: "DOOR_BLOCKED", unitIds: [i.unitId], message: `${i.unitId} cross-section ${Math.round(i.dy)}×${Math.round(i.dz)} mm exceeds the door opening ${Math.round(e.doorW)}×${Math.round(e.doorH)} mm in its placed orientation.` });
   }
-  const u = o.filter((s) => r.has(s.unitId)).slice().sort((s, a) => s.x - a.x);
-  for (let s = 0; s < u.length; s++) {
-    const a = u[s];
-    for (let m = s + 1; m < u.length; m++) {
-      const g = u[m];
-      if (g.x >= a.x + a.dx - w) break;
-      g.y < a.y + a.dy - w && a.y < g.y + g.dy - w && g.z < a.z + a.dz - w && a.z < g.z + g.dz - w && l.push({ code: "OVERLAP", unitIds: [a.unitId, g.unitId], message: `${a.unitId} and ${g.unitId} occupy the same space.` });
+  const d = n.filter((i) => u.has(i.unitId)).slice().sort((i, l) => i.x - l.x);
+  for (let i = 0; i < d.length; i++) {
+    const l = d[i];
+    for (let p = i + 1; p < d.length; p++) {
+      const g = d[p];
+      if (g.x >= l.x + l.dx - w) break;
+      g.y < l.y + l.dy - w && l.y < g.y + g.dy - w && g.z < l.z + l.dz - w && l.z < g.z + g.dz - w && a.push({ code: "OVERLAP", unitIds: [l.unitId, g.unitId], message: `${l.unitId} and ${g.unitId} occupy the same space.` });
     }
   }
-  for (const s of u) {
-    if (s.z <= w) continue;
-    const a = s.dx * s.dy;
-    let m = 0;
-    for (const g of u) {
-      if (g === s || !R(g.z + g.dz, s.z)) continue;
-      const f = Math.min(s.x + s.dx, g.x + g.dx) - Math.max(s.x, g.x), L = Math.min(s.y + s.dy, g.y + g.dy) - Math.max(s.y, g.y);
-      f > w && L > w && (m += f * L, r.get(g.unitId).stackable || l.push({ code: "ON_NO_STACK_ITEM", unitIds: [s.unitId, g.unitId], message: `${s.unitId} rests on no-stack item ${g.unitId}.` }));
+  for (const i of d) {
+    if (i.z <= w) continue;
+    const l = i.dx * i.dy;
+    let p = 0;
+    for (const g of d) {
+      if (g === i || !R(g.z + g.dz, i.z)) continue;
+      const f = Math.min(i.x + i.dx, g.x + g.dx) - Math.max(i.x, g.x), L = Math.min(i.y + i.dy, g.y + g.dy) - Math.max(i.y, g.y);
+      f > w && L > w && (p += f * L, u.get(g.unitId).stackable || a.push({ code: "ON_NO_STACK_ITEM", unitIds: [i.unitId, g.unitId], message: `${i.unitId} rests on no-stack item ${g.unitId}.` }));
     }
-    m / a < i - 1e-6 && l.push({ code: "UNSUPPORTED", unitIds: [s.unitId], message: `${s.unitId} base is only ${(100 * m / a).toFixed(0)}% supported (minimum ${n.minSupportPct}%).` });
+    p / l < r - 1e-6 && a.push({ code: "UNSUPPORTED", unitIds: [i.unitId], message: `${i.unitId} base is only ${(100 * p / l).toFixed(0)}% supported (minimum ${o.minSupportPct}%).` });
   }
   if (e.payloadKg !== null) {
-    const s = o.reduce((a, m) => a + (r.get(m.unitId)?.weightKg ?? 0), 0);
-    s > e.payloadKg + 1e-6 && l.push({ code: "PAYLOAD_EXCEEDED", unitIds: [], message: `Known loaded weight ${s.toFixed(1)} kg exceeds declared payload ${e.payloadKg.toFixed(1)} kg.` });
+    const i = n.reduce((l, p) => l + (u.get(p.unitId)?.weightKg ?? 0), 0);
+    i > e.payloadKg + 1e-6 && a.push({ code: "PAYLOAD_EXCEEDED", unitIds: [], message: `Known loaded weight ${i.toFixed(1)} kg exceeds declared payload ${e.payloadKg.toFixed(1)} kg.` });
   }
-  for (let s = 0; s < u.length; s++) {
-    const a = u[s], m = r.get(a.unitId);
-    if (!(!m || m.stop === null || m.stop === void 0))
-      for (let g = 0; g < u.length; g++) {
-        if (s === g) continue;
-        const f = u[g], L = r.get(f.unitId);
-        if (!(!L || L.stop === null || L.stop === void 0) && m.stop < L.stop && f.x >= a.x + a.dx - w) {
-          const y = Math.min(a.y + a.dy, f.y + f.dy) - Math.max(a.y, f.y), I = Math.min(a.z + a.dz, f.z + f.dz) - Math.max(a.z, f.z);
-          if (y > w && I > w) {
-            l.push({
+  for (let i = 0; i < d.length; i++) {
+    const l = d[i], p = u.get(l.unitId);
+    if (!(!p || p.stop === null || p.stop === void 0))
+      for (let g = 0; g < d.length; g++) {
+        if (i === g) continue;
+        const f = d[g], L = u.get(f.unitId);
+        if (!(!L || L.stop === null || L.stop === void 0) && p.stop < L.stop && f.x >= l.x + l.dx - w) {
+          const x = Math.min(l.y + l.dy, f.y + f.dy) - Math.max(l.y, f.y), C = Math.min(l.z + l.dz, f.z + f.dz) - Math.max(l.z, f.z);
+          if (x > w && C > w) {
+            a.push({
               code: "STOP_ACCESS_BLOCKED",
-              unitIds: [a.unitId, f.unitId],
-              message: `${a.unitId} (Stop ${m.stop}) is blocked from rear door egress by ${f.unitId} (Stop ${L.stop}) placed behind it.`
+              unitIds: [l.unitId, f.unitId],
+              message: `${l.unitId} (Stop ${p.stop}) is blocked from rear door egress by ${f.unitId} (Stop ${L.stop}) placed behind it.`
             });
             break;
           }
         }
       }
   }
-  return l;
+  return a;
 }
 function Se(t) {
-  const [e, o, n] = t.dims;
-  let l;
-  t.rotation === "fixed" ? l = [[e, o, n]] : t.rotation === "upright" ? l = [[e, o, n], [o, e, n]] : l = [[e, o, n], [o, e, n], [e, n, o], [n, e, o], [o, n, e], [n, o, e]];
-  const r = /* @__PURE__ */ new Set();
-  return l.filter((d) => {
-    const i = d.join("|");
-    return r.has(i) ? !1 : (r.add(i), !0);
+  const [e, n, o] = t.dims;
+  let a;
+  t.rotation === "fixed" ? a = [[e, n, o]] : t.rotation === "upright" ? a = [[e, n, o], [n, e, o]] : a = [[e, n, o], [n, e, o], [e, o, n], [o, e, n], [n, o, e], [o, n, e]];
+  const u = /* @__PURE__ */ new Set();
+  return a.filter((s) => {
+    const r = s.join("|");
+    return u.has(r) ? !1 : (u.add(r), !0);
   });
 }
 function Ce(t, e) {
-  return Se(t).filter(([o, n, l]) => o <= e.L + w && n <= e.W + w && l <= e.H + w && (e.doorW === null || e.doorH === null || n <= e.doorW + w && l <= e.doorH + w));
+  return Se(t).filter(([n, o, a]) => n <= e.L + w && o <= e.W + w && a <= e.H + w && (e.doorW === null || e.doorH === null || o <= e.doorW + w && a <= e.doorH + w));
 }
-function Ye(t) {
+function Xe(t) {
   let e = t >>> 0;
   return () => {
     e = e + 1831565813 >>> 0;
-    let o = e;
-    return o = Math.imul(o ^ o >>> 15, o | 1), o ^= o + Math.imul(o ^ o >>> 7, o | 61), ((o ^ o >>> 14) >>> 0) / 4294967296;
+    let n = e;
+    return n = Math.imul(n ^ n >>> 15, n | 1), n ^= n + Math.imul(n ^ n >>> 7, n | 61), ((n ^ n >>> 14) >>> 0) / 4294967296;
   };
 }
-const H = (t) => t.dims[0] * t.dims[1] * t.dims[2], je = [
+const H = (t) => t.dims[0] * t.dims[1] * t.dims[2], Ye = [
   { name: "Volume ↓", key: (t) => [-H(t)] },
   { name: "Longest edge ↓", key: (t) => [-Math.max(...t.dims), -H(t)] },
-  { name: "Footprint ↓", key: (t) => [-([...t.dims].sort((e, o) => o - e)[0] * [...t.dims].sort((e, o) => o - e)[1]), -H(t)] },
+  { name: "Footprint ↓", key: (t) => [-([...t.dims].sort((e, n) => n - e)[0] * [...t.dims].sort((e, n) => n - e)[1]), -H(t)] },
   { name: "Heavy first", key: (t) => [-(t.weightKg ?? 0), -H(t)] },
   { name: "Tallest first", key: (t) => [-t.dims[2], -H(t)] },
   { name: "No-stack first", key: (t) => [t.stackable ? 1 : 0, -H(t)] },
   { name: "Reverse drop (LIFO)", key: (t) => [-(t.stop ?? 0), -H(t)] },
   { name: "Input order", key: (t, e) => [e] }
 ];
-function qe(t, e, o, n, l, r) {
-  const d = [], u = /* @__PURE__ */ new Map(), s = [];
-  let a = 0;
-  const m = (c, x) => c * 100003 + x, g = (c) => {
-    const x = d[c];
-    for (let v = Math.floor(x.x / 250); v <= Math.floor((x.x + x.dx - w) / 250); v++)
-      for (let h = Math.floor(x.y / 250); h <= Math.floor((x.y + x.dy - w) / 250); h++) {
-        const C = m(v, h), S = u.get(C);
-        S ? S.push(c) : u.set(C, [c]);
+function je(t, e, n, o, a, u) {
+  const s = [], d = /* @__PURE__ */ new Map(), i = [];
+  let l = 0;
+  const p = (c, I) => c * 100003 + I, g = (c) => {
+    const I = s[c];
+    for (let M = Math.floor(I.x / 250); M <= Math.floor((I.x + I.dx - w) / 250); M++)
+      for (let m = Math.floor(I.y / 250); m <= Math.floor((I.y + I.dy - w) / 250); m++) {
+        const S = p(M, m), v = d.get(S);
+        v ? v.push(c) : d.set(S, [c]);
       }
-  }, f = (c, x, v, h) => {
-    a++;
-    const C = [];
-    for (let S = Math.floor(c / 250); S <= Math.floor((c + v - w) / 250); S++)
-      for (let D = Math.floor(x / 250); D <= Math.floor((x + h - w) / 250); D++) {
-        const k = u.get(m(S, D));
-        if (k)
-          for (const E of k) s[E] !== a && (s[E] = a, C.push(E));
+  }, f = (c, I, M, m) => {
+    l++;
+    const S = [];
+    for (let v = Math.floor(c / 250); v <= Math.floor((c + M - w) / 250); v++)
+      for (let F = Math.floor(I / 250); F <= Math.floor((I + m - w) / 250); F++) {
+        const E = d.get(p(v, F));
+        if (E)
+          for (const $ of E) i[$] !== l && (i[$] = l, S.push($));
       }
-    return C;
-  }, L = [[0, 0]], y = /* @__PURE__ */ new Set(["0|0"]), I = [], $ = [];
-  let M = 0, p = "";
-  const b = (c, x) => {
-    if (c > e.L + w || x > e.W + w) return;
-    const v = `${Math.round(c * 100)}|${Math.round(x * 100)}`;
-    if (y.has(v)) return;
-    y.add(v);
-    let h = 0, C = L.length;
-    for (; h < C; ) {
-      const S = h + C >> 1;
-      L[S][0] < c || L[S][0] === c && L[S][1] < x ? h = S + 1 : C = S;
+    return S;
+  }, L = [[0, 0]], x = /* @__PURE__ */ new Set(["0|0"]), C = [], k = [];
+  let b = 0, h = "";
+  const y = (c, I) => {
+    if (c > e.L + w || I > e.W + w) return;
+    const M = `${Math.round(c * 100)}|${Math.round(I * 100)}`;
+    if (x.has(M)) return;
+    x.add(M);
+    let m = 0, S = L.length;
+    for (; m < S; ) {
+      const v = m + S >> 1;
+      L[v][0] < c || L[v][0] === c && L[v][1] < I ? m = v + 1 : S = v;
     }
-    L.splice(h, 0, [c, x]);
+    L.splice(m, 0, [c, I]);
   };
   for (const c of t) {
-    if (r() || Date.now() > l) {
-      $.push(c.id);
+    if (u() || Date.now() > a) {
+      k.push(c.id);
       continue;
     }
-    if (e.payloadKg !== null && c.weightKg !== null && M + c.weightKg > e.payloadKg + 1e-6) {
-      $.push(c.id);
+    if (e.payloadKg !== null && c.weightKg !== null && b + c.weightKg > e.payloadKg + 1e-6) {
+      k.push(c.id);
       continue;
     }
-    const x = `${c.dims.join("x")}|${c.rotation}|${c.stackable}`;
-    if (x === p) {
-      $.push(c.id);
+    const I = `${c.dims.join("x")}|${c.rotation}|${c.stackable}`;
+    if (I === h) {
+      k.push(c.id);
       continue;
     }
-    const v = Ce(c, e);
-    let h = null;
-    for (const [k, E] of L) {
-      if (h && k > h.x + w && (o === "front-first" || h.z <= w)) break;
-      for (const W of v) {
-        const [F, _, T] = W;
-        if (k + F > e.L + w || E + _ > e.W + w) continue;
-        const z = f(k, E, F, _);
-        let N = 0;
-        for (const K of z) {
-          const A = d[K];
-          k < A.x + A.dx - w && A.x < k + F - w && E < A.y + A.dy - w && A.y < E + _ - w && A.top > N && (N = A.top);
+    const M = Ce(c, e);
+    let m = null;
+    for (const [E, $] of L) {
+      if (m && E > m.x + w && (n === "front-first" || m.z <= w)) break;
+      for (const P of M) {
+        const [U, _, O] = P;
+        if (E + U > e.L + w || $ + _ > e.W + w) continue;
+        const N = f(E, $, U, _);
+        let D = 0;
+        for (const z of N) {
+          const A = s[z];
+          E < A.x + A.dx - w && A.x < E + U - w && $ < A.y + A.dy - w && A.y < $ + _ - w && A.top > D && (D = A.top);
         }
-        if (N + T > e.H + w) continue;
-        if (N > w) {
-          let K = 0, A = !0;
-          for (const J of z) {
-            const O = d[J];
-            if (Math.abs(O.top - N) > w) continue;
-            const G = Math.min(k + F, O.x + O.dx) - Math.max(k, O.x), Z = Math.min(E + _, O.y + O.dy) - Math.max(E, O.y);
-            if (G > w && Z > w) {
-              if (!O.stackable) {
+        if (D + O > e.H + w) continue;
+        if (D > w) {
+          let z = 0, A = !0;
+          for (const J of N) {
+            const T = s[J];
+            if (Math.abs(T.top - D) > w) continue;
+            const G = Math.min(E + U, T.x + T.dx) - Math.max(E, T.x), Q = Math.min($ + _, T.y + T.dy) - Math.max($, T.y);
+            if (G > w && Q > w) {
+              if (!T.stackable) {
                 A = !1;
                 break;
               }
-              K += G * Z;
+              z += G * Q;
             }
           }
-          if (!A || K / (F * _) < n - 1e-6) continue;
+          if (!A || z / (U * _) < o - 1e-6) continue;
         }
-        const q = o === "front-first" ? [k, N, E, T] : [N, k, E, T];
-        (!h || Ee(q, h.score) < 0) && (h = { score: q, x: k, y: E, z: N, d: W });
+        const q = n === "front-first" ? [E, D, $, O] : [D, E, $, O];
+        (!m || ke(q, m.score) < 0) && (m = { score: q, x: E, y: $, z: D, d: P });
       }
     }
-    if (!h) {
-      $.push(c.id), p = x;
+    if (!m) {
+      k.push(c.id), h = I;
       continue;
     }
-    p = "";
-    const [C, S, D] = h.d;
-    d.push({ x: h.x, y: h.y, z: h.z, dx: C, dy: S, dz: D, top: h.z + D, stackable: c.stackable }), g(d.length - 1), I.push({ unitId: c.id, rowUid: c.rowUid, label: c.label, x: h.x, y: h.y, z: h.z, dx: C, dy: S, dz: D, order: I.length + 1, stop: c.stop ?? null }), c.weightKg !== null && (M += c.weightKg), b(h.x + C, h.y), b(h.x, h.y + S), b(h.x, h.y), b(h.x + C, 0), b(0, h.y + S);
+    h = "";
+    const [S, v, F] = m.d;
+    s.push({ x: m.x, y: m.y, z: m.z, dx: S, dy: v, dz: F, top: m.z + F, stackable: c.stackable }), g(s.length - 1), C.push({ unitId: c.id, rowUid: c.rowUid, label: c.label, x: m.x, y: m.y, z: m.z, dx: S, dy: v, dz: F, order: C.length + 1, stop: c.stop ?? null }), c.weightKg !== null && (b += c.weightKg), y(m.x + S, m.y), y(m.x, m.y + v), y(m.x, m.y), y(m.x + S, 0), y(0, m.y + v);
   }
-  return { placements: I, unplacedIds: $ };
+  return { placements: C, unplacedIds: k };
 }
-function Ee(t, e) {
-  for (let o = 0; o < t.length; o++) if (t[o] !== e[o]) return t[o] - e[o];
+function ke(t, e) {
+  for (let n = 0; n < t.length; n++) if (t[n] !== e[n]) return t[n] - e[n];
   return 0;
 }
-const Je = (t) => t.map((e) => `${e.unitId}@${e.x},${e.y},${e.z},${e.dx},${e.dy},${e.dz}`).sort().join(";");
-function Ze(t, e, o, n = {}) {
-  const l = n.shouldCancel ?? (() => !1), d = Date.now() + o.maxMs, i = o.minSupportPct / 100, u = Ye(o.seed), s = [];
-  let a = 0, m = !1;
-  const g = n.quick ? Math.min(2, o.maxAttempts) : o.maxAttempts, f = ["front-first", "floor-first"], L = (b, c, x) => {
-    a++;
-    const v = qe(c, e, x, i, d, l);
-    s.push({ name: `${b} · ${x === "front-first" ? "front-first" : "floor-first"}`, r: v }), v.unplacedIds.length === 0 && (m = !0);
+const qe = (t) => t.map((e) => `${e.unitId}@${e.x},${e.y},${e.z},${e.dx},${e.dy},${e.dz}`).sort().join(";");
+function Je(t, e, n, o = {}) {
+  const a = o.shouldCancel ?? (() => !1), s = Date.now() + n.maxMs, r = n.minSupportPct / 100, d = Xe(n.seed), i = [];
+  let l = 0, p = !1;
+  const g = o.quick ? Math.min(2, n.maxAttempts) : n.maxAttempts, f = ["front-first", "floor-first"], L = (y, c, I) => {
+    l++;
+    const M = je(c, e, I, r, s, a);
+    i.push({ name: `${y} · ${I === "front-first" ? "front-first" : "floor-first"}`, r: M }), M.unplacedIds.length === 0 && (p = !0);
   };
-  e: for (const b of je) {
-    const c = new Map(t.map((v, h) => [v.id, h])), x = [...t].sort((v, h) => Ee(b.key(v, c.get(v.id)), b.key(h, c.get(h.id))) || c.get(v.id) - c.get(h.id));
-    for (const v of f) {
-      if (a >= g || l() || Date.now() > d) break e;
-      L(b.name, x, v);
+  e: for (const y of Ye) {
+    const c = new Map(t.map((M, m) => [M.id, m])), I = [...t].sort((M, m) => ke(y.key(M, c.get(M.id)), y.key(m, c.get(m.id))) || c.get(M.id) - c.get(m.id));
+    for (const M of f) {
+      if (l >= g || a() || Date.now() > s) break e;
+      L(y.name, I, M);
     }
   }
-  let y = 0;
-  for (; !m && a < g && !l() && Date.now() <= d; ) {
-    const b = t.map((c) => ({ u: c, k: -H(c) * (0.6 + 0.8 * u()) }));
-    b.sort((c, x) => c.k - x.k), L(`Seeded shuffle ${++y}`, b.map((c) => c.u), u() < 0.5 ? "front-first" : "floor-first");
+  let x = 0;
+  for (; !p && l < g && !a() && Date.now() <= s; ) {
+    const y = t.map((c) => ({ u: c, k: -H(c) * (0.6 + 0.8 * d()) }));
+    y.sort((c, I) => c.k - I.k), L(`Seeded shuffle ${++x}`, y.map((c) => c.u), d() < 0.5 ? "front-first" : "floor-first");
   }
-  const I = l() ? "cancelled" : m ? "all_placed" : Date.now() > d ? "time_cap" : "attempts_exhausted", $ = (b) => b.reduce((c, x) => Math.max(c, x.x + x.dx), 0);
-  s.sort((b, c) => b.r.unplacedIds.length - c.r.unplacedIds.length || $(b.r.placements) - $(c.r.placements));
-  const M = /* @__PURE__ */ new Set(), p = [];
-  for (const b of s) {
-    const c = Je(b.r.placements);
-    if (!M.has(c) && (M.add(c), p.push({ name: b.name, placements: b.r.placements, unplacedIds: b.r.unplacedIds }), p.length >= 3))
+  const C = a() ? "cancelled" : p ? "all_placed" : Date.now() > s ? "time_cap" : "attempts_exhausted", k = (y) => y.reduce((c, I) => Math.max(c, I.x + I.dx), 0);
+  i.sort((y, c) => y.r.unplacedIds.length - c.r.unplacedIds.length || k(y.r.placements) - k(c.r.placements));
+  const b = /* @__PURE__ */ new Set(), h = [];
+  for (const y of i) {
+    const c = qe(y.r.placements);
+    if (!b.has(c) && (b.add(c), h.push({ name: y.name, placements: y.r.placements, unplacedIds: y.r.unplacedIds }), h.length >= 3))
       break;
   }
-  return { arrangements: p, attempts: a, stopReason: I };
+  return { arrangements: h, attempts: l, stopReason: C };
 }
 const be = "ep-heuristic-1.0";
-function ce(t, e, o) {
-  const n = new Map(t.map((p) => [p.id, p]));
-  let l = 0, r = 0, d = 0, i = 0, u = 0, s = 0;
-  for (const p of o) {
-    l += p.dx * p.dy * p.dz;
-    const b = n.get(p.unitId)?.weightKg ?? 0;
-    r += b, d += b * (p.x + p.dx / 2), i += b * (p.y + p.dy / 2), u += b * (p.z + p.dz / 2), s = Math.max(s, p.x + p.dx);
+function ce(t, e, n) {
+  const o = new Map(t.map((h) => [h.id, h]));
+  let a = 0, u = 0, s = 0, r = 0, d = 0, i = 0;
+  for (const h of n) {
+    a += h.dx * h.dy * h.dz;
+    const y = o.get(h.unitId)?.weightKg ?? 0;
+    u += y, s += y * (h.x + h.dx / 2), r += y * (h.y + h.dy / 2), d += y * (h.z + h.dz / 2), i = Math.max(i, h.x + h.dx);
   }
-  const a = new Set(o.map((p) => p.unitId)), m = t.filter((p) => p.weightKg === null).length, g = t.filter((p) => p.weightKg === null && a.has(p.id)).length, f = r > 0 && g === 0, L = f ? d / r : null, y = f ? i / r : null, I = f ? u / r : null, $ = f && e.L > 0 ? 100 * d / r / e.L : null;
-  let M = null;
+  const l = new Set(n.map((h) => h.unitId)), p = t.filter((h) => h.weightKg === null).length, g = t.filter((h) => h.weightKg === null && l.has(h.id)).length, f = u > 0 && g === 0, L = f ? s / u : null, x = f ? r / u : null, C = f ? d / u : null, k = f && e.L > 0 ? 100 * s / u / e.L : null;
+  let b = null;
   if (f && L !== null && e.L > 3e3) {
-    const p = 0.08 * e.L, b = 0.8 * e.L, c = Math.max(1, b - p), x = Math.max(0, Math.min(1, (L - p) / c)), v = 1 - x, h = Math.round(r * x), C = Math.round(r * v * 0.2), S = Math.round(r * v * 0.8), D = 5443, k = 15422, E = 15422, W = e.L / 304.8, F = Math.min(8e4, 500 * (1.25 * W + 96)), _ = Math.round(F * 0.45359237), T = r <= _ && S <= k && h <= E && C <= D;
-    M = {
-      steerKg: C,
-      driveKg: S,
-      trailerKg: h,
-      steerPct: Math.round(C / D * 100),
-      drivePct: Math.round(S / k * 100),
-      trailerPct: Math.round(h / E * 100),
-      bridgeFormulaCompliant: T,
+    const h = 0.08 * e.L, y = 0.8 * e.L, c = Math.max(1, y - h), I = Math.max(0, Math.min(1, (L - h) / c)), M = 1 - I, m = Math.round(u * I), S = Math.round(u * M * 0.2), v = Math.round(u * M * 0.8), F = 5443, E = 15422, $ = 15422, P = e.L / 304.8, U = Math.min(8e4, 500 * (1.25 * P + 96)), _ = Math.round(U * 0.45359237), O = u <= _ && v <= E && m <= $ && S <= F;
+    b = {
+      steerKg: S,
+      driveKg: v,
+      trailerKg: m,
+      steerPct: Math.round(S / F * 100),
+      drivePct: Math.round(v / E * 100),
+      trailerPct: Math.round(m / $ * 100),
+      bridgeFormulaCompliant: O,
       bridgeFormulaLimitKg: _
     };
   }
   return {
     totalUnits: t.length,
-    placedUnits: o.length,
-    occupiedVolumePct: 100 * l / (e.L * e.W * e.H),
-    loadedWeightKg: r,
-    unknownWeightUnits: m,
+    placedUnits: n.length,
+    occupiedVolumePct: 100 * a / (e.L * e.W * e.H),
+    loadedWeightKg: u,
+    unknownWeightUnits: p,
     payloadKg: e.payloadKg,
-    payloadRemainingKg: e.payloadKg === null ? null : e.payloadKg - r,
-    usedLengthMm: s,
-    cogXPct: $,
+    payloadRemainingKg: e.payloadKg === null ? null : e.payloadKg - u,
+    usedLengthMm: i,
+    cogXPct: k,
     cogX: L,
-    cogY: y,
-    cogZ: I,
-    axleEst: M
+    cogY: x,
+    cogZ: C,
+    axleEst: b
   };
 }
-function Qe(t, e, o) {
-  const n = Array.from(new Set(t.map((i) => i.stop).filter((i) => typeof i == "number" && i > 0))).sort((i, u) => i - u);
-  if (n.length < 2) return [];
-  const l = [], r = new Map(t.map((i) => [i.id, i])), d = ce(t, e, o);
-  l.push({
+function Qe(t, e, n) {
+  const o = Array.from(new Set(t.map((r) => r.stop).filter((r) => typeof r == "number" && r > 0))).sort((r, d) => r - d);
+  if (o.length < 2) return [];
+  const a = [], u = new Map(t.map((r) => [r.id, r])), s = ce(t, e, n);
+  a.push({
     stage: 0,
     stop: 0,
     label: "Depart Origin (Full Load)",
-    remainingUnits: o.length,
-    remainingWeightKg: d.loadedWeightKg,
-    cogX: d.cogX ?? null,
-    cogXPct: d.cogXPct ?? null,
-    axleEst: d.axleEst ?? null,
+    remainingUnits: n.length,
+    remainingWeightKg: s.loadedWeightKg,
+    cogX: s.cogX ?? null,
+    cogXPct: s.cogXPct ?? null,
+    axleEst: s.axleEst ?? null,
     warning: null
   });
-  for (let i = 0; i < n.length; i++) {
-    const u = n[i], s = o.filter((g) => {
-      const L = r.get(g.unitId)?.stop ?? g.stop ?? null;
-      return L === null || L > u;
-    }), a = ce(t, e, s);
-    let m = null;
-    a.axleEst && (a.axleEst.drivePct > 100 ? m = `Drive tandem overloaded (${a.axleEst.drivePct}% rating) after Stop ${u} drop.` : a.axleEst.steerPct > 100 ? m = `Steer axle overloaded (${a.axleEst.steerPct}% rating) after Stop ${u} drop.` : a.cogXPct !== null && a.cogXPct < 40 && (m = `Forward weight bias (CoG at ${Math.round(a.cogXPct)}% L) after rear cargo drop.`)), l.push({
-      stage: i + 1,
-      stop: u,
-      label: i === n.length - 1 ? "Final Destination (Empty)" : `En route to Stop ${n[i + 1]} (Post-Stop ${u} Drop)`,
-      remainingUnits: s.length,
-      remainingWeightKg: a.loadedWeightKg,
-      cogX: a.cogX ?? null,
-      cogXPct: a.cogXPct ?? null,
-      axleEst: a.axleEst ?? null,
-      warning: m
+  for (let r = 0; r < o.length; r++) {
+    const d = o[r], i = n.filter((g) => {
+      const L = u.get(g.unitId)?.stop ?? g.stop ?? null;
+      return L === null || L > d;
+    }), l = ce(t, e, i);
+    let p = null;
+    l.axleEst && (l.axleEst.drivePct > 100 ? p = `Drive tandem overloaded (${l.axleEst.drivePct}% rating) after Stop ${d} drop.` : l.axleEst.steerPct > 100 ? p = `Steer axle overloaded (${l.axleEst.steerPct}% rating) after Stop ${d} drop.` : l.cogXPct !== null && l.cogXPct < 40 && (p = `Forward weight bias (CoG at ${Math.round(l.cogXPct)}% L) after rear cargo drop.`)), a.push({
+      stage: r + 1,
+      stop: d,
+      label: r === o.length - 1 ? "Final Destination (Empty)" : `En route to Stop ${o[r + 1]} (Post-Stop ${d} Drop)`,
+      remainingUnits: i.length,
+      remainingWeightKg: l.loadedWeightKg,
+      cogX: l.cogX ?? null,
+      cogXPct: l.cogXPct ?? null,
+      axleEst: l.axleEst ?? null,
+      warning: p
     });
   }
-  return l;
+  return a;
 }
-function we(t, e, o) {
-  const n = (l, r, d) => ({
-    id: l,
-    label: r,
-    note: d,
-    state: o ? "verified" : "unknown"
+function we(t, e, n) {
+  const o = (a, u, s) => ({
+    id: a,
+    label: u,
+    note: s,
+    state: n ? "verified" : "unknown"
   });
   return [
-    n("bounds", "Inside interior dimensions", "Every box lies within L × W × H of the declared interior."),
-    n("overlap", "No overlapping items", "Pairwise axis-aligned box test by an independent validator."),
-    n("orientation", "Allowed orientations only", "Each item uses an orientation permitted by its rotation rule."),
-    n("support", "Base support & no-stack", "Each raised item rests on surfaces at its exact base height, none marked no-stack."),
-    t.payloadKg === null ? { id: "payload", label: "Declared payload", state: "not_declared", note: "No payload declared, so weight is not checked." } : e > 0 ? { id: "payload", label: "Declared payload", state: "unknown", note: `${e} unit(s) have unknown weight; total cannot be confirmed.` } : { id: "payload", label: "Declared payload", state: o ? "verified" : "unknown", note: "Sum of declared unit weights vs the declared payload figure." },
-    t.doorW === null ? { id: "door", label: "Door opening", state: "not_declared", note: "No door opening declared, so door fit is not checked." } : { id: "door", label: "Door opening", state: o ? "verified" : "unknown", note: "Each item's cross-section in its placed orientation fits the declared opening. Interior path and handling equipment are NOT modeled." },
+    o("bounds", "Inside interior dimensions", "Every box lies within L × W × H of the declared interior."),
+    o("overlap", "No overlapping items", "Pairwise axis-aligned box test by an independent validator."),
+    o("orientation", "Allowed orientations only", "Each item uses an orientation permitted by its rotation rule."),
+    o("support", "Base support & no-stack", "Each raised item rests on surfaces at its exact base height, none marked no-stack."),
+    t.payloadKg === null ? { id: "payload", label: "Declared payload", state: "not_declared", note: "No payload declared, so weight is not checked." } : e > 0 ? { id: "payload", label: "Declared payload", state: "unknown", note: `${e} unit(s) have unknown weight; total cannot be confirmed.` } : { id: "payload", label: "Declared payload", state: n ? "verified" : "unknown", note: "Sum of declared unit weights vs the declared payload figure." },
+    t.doorW === null ? { id: "door", label: "Door opening", state: "not_declared", note: "No door opening declared, so door fit is not checked." } : { id: "door", label: "Door opening", state: n ? "verified" : "unknown", note: "Each item's cross-section in its placed orientation fits the declared opening. Interior path and handling equipment are NOT modeled." },
     { id: "axle", label: "Axle / axle-group loads & legal limits", state: "not_modeled", note: "Needs vehicle configuration, tare and jurisdiction. Verify with scales and a qualified person." },
     { id: "securement", label: "Load securement", state: "not_modeled", note: "Depends on restraint equipment and applicable rules, not on box geometry." },
     { id: "handling", label: "Forklift / manual handling access", state: "not_modeled", note: "Loading order, aisle and reach are not simulated." },
@@ -545,7 +546,7 @@ const ye = (t, e) => ({
   placedUnits: 0,
   occupiedVolumePct: 0,
   loadedWeightKg: 0,
-  unknownWeightUnits: t.filter((o) => o.weightKg === null).length,
+  unknownWeightUnits: t.filter((n) => n.weightKg === null).length,
   payloadKg: e?.payloadKg ?? null,
   payloadRemainingKg: e?.payloadKg ?? null,
   usedLengthMm: 0,
@@ -555,158 +556,158 @@ const ye = (t, e) => ({
   cogZ: null,
   axleEst: null
 });
-function et(t, e) {
-  const o = [], n = /* @__PURE__ */ new Map();
-  for (const d of t) n.has(d.rowUid) || n.set(d.rowUid, d);
-  for (const d of n.values()) {
-    const [i, u, s] = d.dims, a = Le(d).some(([L, y, I]) => L <= e.L + w && y <= e.W + w && I <= e.H + w), m = Le(d).some((L) => tt(L, e)), g = Ce(d, e).length > 0, f = `${Math.round(i)}×${Math.round(u)}×${Math.round(s)} mm`;
-    g || (a ? m ? o.push({
+function Ze(t, e) {
+  const n = [], o = /* @__PURE__ */ new Map();
+  for (const s of t) o.has(s.rowUid) || o.set(s.rowUid, s);
+  for (const s of o.values()) {
+    const [r, d, i] = s.dims, l = Le(s).some(([L, x, C]) => L <= e.L + w && x <= e.W + w && C <= e.H + w), p = Le(s).some((L) => et(L, e)), g = Ce(s, e).length > 0, f = `${Math.round(r)}×${Math.round(d)}×${Math.round(i)} mm`;
+    g || (l ? p ? n.push({
       code: "ROTATION_FORBIDDEN_WOULD_FIT",
       severity: "error",
-      labels: [d.label],
-      message: `${d.label} (${f}) would fit if rotated further, but its rotation rule (${d.rotation}) forbids that orientation.`,
+      labels: [s.label],
+      message: `${s.label} (${f}) would fit if rotated further, but its rotation rule (${s.rotation}) forbids that orientation.`,
       action: "If the item may be tilted or laid on its side, relax the rotation rule — the plan will update."
-    }) : o.push({
+    }) : n.push({
       code: "ITEM_EXCEEDS_DOOR",
       severity: "error",
-      labels: [d.label],
-      message: `${d.label} (${f}) fits inside but cannot pass the ${Math.round(e.doorW)}×${Math.round(e.doorH)} mm door opening in any orientation.`,
+      labels: [s.label],
+      message: `${s.label} (${f}) fits inside but cannot pass the ${Math.round(e.doorW)}×${Math.round(e.doorH)} mm door opening in any orientation.`,
       action: "Use equipment with a larger opening, or split/tilt the item if it can be dismantled."
-    }) : o.push({
+    }) : n.push({
       code: "ITEM_EXCEEDS_INTERIOR",
       severity: "error",
-      labels: [d.label],
-      message: `${d.label} (${f}) cannot fit inside ${Math.round(e.L)}×${Math.round(e.W)}×${Math.round(e.H)} mm in any orientation.`,
+      labels: [s.label],
+      message: `${s.label} (${f}) cannot fit inside ${Math.round(e.L)}×${Math.round(e.W)}×${Math.round(e.H)} mm in any orientation.`,
       action: "Choose larger equipment, or re-check the item dimensions."
     }));
   }
-  const l = t.reduce((d, i) => d + (i.weightKg ?? 0), 0);
-  e.payloadKg !== null && l > e.payloadKg + 1e-6 && o.push({
+  const a = t.reduce((s, r) => s + (r.weightKg ?? 0), 0);
+  e.payloadKg !== null && a > e.payloadKg + 1e-6 && n.push({
     code: "PAYLOAD_EXCEEDED",
     severity: "error",
     labels: [],
-    message: `Declared weights total ${l.toFixed(0)} kg, above the declared payload of ${e.payloadKg.toFixed(0)} kg${t.some((d) => d.weightKg === null) ? " (and some weights are still unknown)" : ""}.`,
+    message: `Declared weights total ${a.toFixed(0)} kg, above the declared payload of ${e.payloadKg.toFixed(0)} kg${t.some((s) => s.weightKg === null) ? " (and some weights are still unknown)" : ""}.`,
     action: "Split the shipment across vehicles or use equipment with higher declared payload."
   });
-  const r = t.reduce((d, i) => d + i.dims[0] * i.dims[1] * i.dims[2], 0);
-  return r > e.L * e.W * e.H + 1 && o.push({
+  const u = t.reduce((s, r) => s + r.dims[0] * r.dims[1] * r.dims[2], 0);
+  return u > e.L * e.W * e.H + 1 && n.push({
     code: "VOLUME_EXCEEDED",
     severity: "error",
     labels: [],
-    message: `Item bounding-box volume (${(r / 1e9).toFixed(2)} m³) exceeds interior volume (${(e.L * e.W * e.H / 1e9).toFixed(2)} m³).`,
+    message: `Item bounding-box volume (${(u / 1e9).toFixed(2)} m³) exceeds interior volume (${(e.L * e.W * e.H / 1e9).toFixed(2)} m³).`,
     action: "Use larger equipment or reduce the shipment."
-  }), o;
+  }), n;
 }
-const Le = (t) => Se({ ...t, rotation: "any" }), tt = (t, e) => t[0] <= e.L + w && t[1] <= e.W + w && t[2] <= e.H + w && (e.doorW === null || e.doorH === null || t[1] <= e.doorW + w && t[2] <= e.doorH + w);
-function ot(t, e, o, n, l) {
-  const r = Date.now(), d = {
+const Le = (t) => Se({ ...t, rotation: "any" }), et = (t, e) => t[0] <= e.L + w && t[1] <= e.W + w && t[2] <= e.H + w && (e.doorW === null || e.doorH === null || t[1] <= e.doorW + w && t[2] <= e.doorH + w);
+function tt(t, e, n, o, a) {
+  const u = Date.now(), s = {
     equipmentId: e?.id ?? "",
-    equipmentName: o,
+    equipmentName: n,
     arrangements: [],
     best: 0,
     violations: [],
-    solver: { version: be, seed: n.seed, attempts: 0, budget: n.maxAttempts, stopReason: "no_solve", ms: 0 }
+    solver: { version: be, seed: o.seed, attempts: 0, budget: o.maxAttempts, stopReason: "no_solve", ms: 0 }
   };
   if (!e)
     return {
-      ...d,
+      ...s,
       status: "INCOMPLETE_INPUT",
       geometryFeasible: !1,
       metrics: ye(t, null),
       checks: [],
       reasons: [{ code: "PROFILE_INVALID", severity: "error", labels: [], message: "Equipment profile has missing or invalid internal dimensions.", action: "Enter positive internal length, width and height." }]
     };
-  if (!l.cargoValid || t.length === 0)
+  if (!a.cargoValid || t.length === 0)
     return {
-      ...d,
+      ...s,
       status: "INCOMPLETE_INPUT",
       geometryFeasible: !1,
       metrics: ye(t, e),
       checks: we(e, 0, !1),
       reasons: [{ code: "INPUT_INVALID", severity: "error", labels: [], message: "Cargo input has errors, so no plan was attempted.", action: "Open the Cargo step and repair the flagged cells." }]
     };
-  const i = et(t, e), u = i.length > 0, s = Ze(t, e, n, { quick: u, shouldCancel: l.shouldCancel }), a = [], m = [];
-  for (const c of s.arrangements)
-    Xe(t, e, c.placements, n).length === 0 ? a.push(c) : m.push(c.name);
-  const g = a[0] ?? { placements: [], unplacedIds: t.map((c) => c.id) }, f = ce(t, e, g.placements), L = t.filter((c) => c.weightKg === null).length, y = g.unplacedIds.length === 0 && g.placements.length === t.length, I = new Set(g.placements.map((c) => c.unitId)), $ = [...new Set(t.filter((c) => !I.has(c.id)).map((c) => c.label))];
-  let M, p = s.stopReason;
-  u ? (M = "PROVEN_INFEASIBLE_UNDER_MODELED_CONSTRAINTS", p = "proven_bound") : y ? L > 0 && e.payloadKg !== null ? (M = "INCOMPLETE_INPUT", i.push({
+  const r = Ze(t, e), d = r.length > 0, i = Je(t, e, o, { quick: d, shouldCancel: a.shouldCancel }), l = [], p = [];
+  for (const c of i.arrangements)
+    Ve(t, e, c.placements, o).length === 0 ? l.push(c) : p.push(c.name);
+  const g = l[0] ?? { placements: [], unplacedIds: t.map((c) => c.id) }, f = ce(t, e, g.placements), L = t.filter((c) => c.weightKg === null).length, x = g.unplacedIds.length === 0 && g.placements.length === t.length, C = new Set(g.placements.map((c) => c.unitId)), k = [...new Set(t.filter((c) => !C.has(c.id)).map((c) => c.label))];
+  let b, h = i.stopReason;
+  d ? (b = "PROVEN_INFEASIBLE_UNDER_MODELED_CONSTRAINTS", h = "proven_bound") : x ? L > 0 && e.payloadKg !== null ? (b = "INCOMPLETE_INPUT", r.push({
     code: "WEIGHT_UNKNOWN",
     severity: "warning",
     labels: [...new Set(t.filter((c) => c.weightKg === null).map((c) => c.label))],
     message: `Geometry fits, but ${L} unit(s) have unknown weight, so the payload check cannot be completed.`,
     action: "Enter or measure the missing weights."
-  })) : e.payloadKg === null || e.doorW === null ? (M = "NEEDS_PHYSICAL_REVIEW", e.payloadKg === null && i.push({ code: "PAYLOAD_NOT_DECLARED", severity: "warning", labels: [], message: "Geometry fits, but no payload is declared for this equipment.", action: "Add the declared payload from the vehicle plate or carrier." }), e.doorW === null && i.push({ code: "DOOR_NOT_DECLARED", severity: "warning", labels: [], message: "Geometry fits, but no door opening is declared, so door fit was not checked.", action: "Add the door opening size." })) : M = "FEASIBLE_UNDER_MODELED_CONSTRAINTS" : (M = "NOT_FOUND_WITHIN_SEARCH_BUDGET", i.push({
+  })) : e.payloadKg === null || e.doorW === null ? (b = "NEEDS_PHYSICAL_REVIEW", e.payloadKg === null && r.push({ code: "PAYLOAD_NOT_DECLARED", severity: "warning", labels: [], message: "Geometry fits, but no payload is declared for this equipment.", action: "Add the declared payload from the vehicle plate or carrier." }), e.doorW === null && r.push({ code: "DOOR_NOT_DECLARED", severity: "warning", labels: [], message: "Geometry fits, but no door opening is declared, so door fit was not checked.", action: "Add the door opening size." })) : b = "FEASIBLE_UNDER_MODELED_CONSTRAINTS" : (b = "NOT_FOUND_WITHIN_SEARCH_BUDGET", r.push({
     code: "UNPLACED_ITEMS",
     severity: "warning",
-    labels: $,
+    labels: k,
     message: `${t.length - g.placements.length} of ${t.length} units were not placed by the heuristic.`,
     action: "This is NOT proof of impossibility. Raise the attempt budget, relax rules (rotation, stacking, support), or try other equipment."
-  }), i.push({
+  }), r.push({
     code: "SEARCH_BUDGET_EXHAUSTED",
     severity: "warning",
     labels: [],
-    message: `Search stopped (${s.stopReason.replace("_", " ")}) after ${s.attempts} attempt(s) without a complete plan.`,
+    message: `Search stopped (${i.stopReason.replace("_", " ")}) after ${i.attempts} attempt(s) without a complete plan.`,
     action: "Increase attempts in Settings, or review the placed partial plan."
-  })), m.length && i.push({ code: "UNPLACED_ITEMS", severity: "warning", labels: [], message: `Internal check discarded ${m.length} candidate arrangement(s) that failed independent validation.`, action: "Report this scenario — solver/validator disagreement." });
-  const b = Qe(t, e, g.placements);
+  })), p.length && r.push({ code: "UNPLACED_ITEMS", severity: "warning", labels: [], message: `Internal check discarded ${p.length} candidate arrangement(s) that failed independent validation.`, action: "Report this scenario — solver/validator disagreement." });
+  const y = Qe(t, e, g.placements);
   return {
-    ...d,
-    status: M,
-    geometryFeasible: y,
-    reasons: i,
-    arrangements: a,
+    ...s,
+    status: b,
+    geometryFeasible: x,
+    reasons: r,
+    arrangements: l,
     best: 0,
     metrics: f,
     violations: [],
-    checks: we(e, L, a.length > 0),
-    multiStopStages: b,
-    solver: { version: be, seed: n.seed, attempts: s.attempts, budget: n.maxAttempts, stopReason: p, ms: Date.now() - r }
+    checks: we(e, L, l.length > 0),
+    multiStopStages: y,
+    solver: { version: be, seed: o.seed, attempts: i.attempts, budget: o.maxAttempts, stopReason: h, ms: Date.now() - u }
   };
 }
 const nt = { seed: 42, maxAttempts: 40, maxMs: 6e3, minSupportPct: 100 };
-function st(t) {
+function ot(t) {
   const e = JSON.stringify({
-    r: t.rows.map((n) => [n.uid, n.label, n.qty, n.length, n.width, n.height, n.dimUnit, n.weight, n.weightUnit, n.rotation, n.stackable]),
-    e: t.equipment.filter((n) => n.included).map((n) => [n.id, n.name, n.length, n.width, n.height, n.unit, n.doorWidth, n.doorHeight, n.payload, n.massUnit, n.cost, n.costSource]),
-    s: [t.settings.seed, t.settings.maxAttempts, t.settings.minSupportPct]
+    r: t.rows.map((o) => [o.uid, o.label, o.qty, o.length, o.width, o.height, o.dimUnit, o.weight, o.weightUnit, o.rotation, o.stackable, o.physicalUnitId, o.barcode, o.stop]),
+    e: t.equipment.filter((o) => o.included).map((o) => [o.id, o.name, o.length, o.width, o.height, o.unit, o.doorWidth, o.doorHeight, o.payload, o.massUnit, o.cost, o.costSource]),
+    s: [t.settings.seed, t.settings.maxAttempts, t.settings.maxMs, t.settings.minSupportPct]
   });
-  let o = 2166136261;
-  for (let n = 0; n < e.length; n++)
-    o ^= e.charCodeAt(n), o = Math.imul(o, 16777619) >>> 0;
-  return o.toString(16).padStart(8, "0");
+  let n = 2166136261;
+  for (let o = 0; o < e.length; o++)
+    n ^= e.charCodeAt(o), n = Math.imul(n, 16777619) >>> 0;
+  return n.toString(16).padStart(8, "0");
 }
 function it(t, e = {}) {
-  const o = [...Be(t.rows), ...Ge(t.equipment.filter((i) => i.included))], n = !o.some((i) => i.scope === "cargo" && i.severity === "error"), l = Ie(t.rows), r = t.equipment.filter((i) => i.included), d = [];
-  for (const i of r) {
+  const n = [...He(t.rows), ...Be(t.equipment.filter((r) => r.included))], o = !n.some((r) => r.scope === "cargo" && r.severity === "error"), a = Me(t.rows), u = t.equipment.filter((r) => r.included), s = [];
+  for (const r of u) {
     if (e.shouldCancel?.()) break;
-    const u = ot(l, ve(i), i.name, t.settings, { cargoValid: n, shouldCancel: e.shouldCancel });
-    u.equipmentId = i.id, d.push(u), e.onResult?.(u, d.length, r.length);
+    const d = tt(a, ve(r), r.name, t.settings, { cargoValid: o, shouldCancel: e.shouldCancel });
+    d.equipmentId = r.id, s.push(d), e.onResult?.(d, s.length, u.length);
   }
-  return { hash: st(t), issues: o, units: l, results: d, cargoValid: n };
+  return { hash: ot(t), issues: n, units: a, results: s, cargoValid: o };
 }
-function se(t, e) {
+function ie(t, e) {
   if (e < 2) return 2e4;
-  const o = 500 * (t * e / (e - 1) + 12 * e + 36);
-  return Math.round(o / 500) * 500;
+  const n = 500 * (t * e / (e - 1) + 12 * e + 36);
+  return Math.round(n / 500) * 500;
 }
-const at = 2.2046226218;
-function rt(t) {
-  const e = t.cargoWeightKg * at, o = t.equipmentLengthMm / 1e3 * 3.28084, n = t.cargoCogXMm / 1e3 * 3.28084;
-  if (!(o >= 40)) {
-    const ae = t.tareSteerLbs ?? 8e3, _e = t.tareDriveLbs ?? 9e3, de = Math.max(0, Math.min(1, n / (o || 24))), De = e * de, Fe = e * (1 - de), Q = Math.round(ae + Fe), ee = Math.round(_e + De), V = Q + ee, X = 2e4, Y = 2e4, j = 33e3, te = {
+const st = 2.2046226218;
+function at(t) {
+  const e = t.cargoWeightKg * st, n = t.equipmentLengthMm / 1e3 * 3.28084, o = t.cargoCogXMm / 1e3 * 3.28084;
+  if (!(n >= 40)) {
+    const ae = t.tareSteerLbs ?? 8e3, $e = t.tareDriveLbs ?? 9e3, de = Math.max(0, Math.min(1, o / (n || 24))), _e = e * de, De = e * (1 - de), Z = Math.round(ae + De), ee = Math.round($e + _e), V = Z + ee, X = 2e4, Y = 2e4, j = 33e3, te = {
       id: "steer",
       name: "Steer Axle (1 axle)",
       axleCount: 1,
       spacingFt: 0,
-      actualWeightLbs: Q,
+      actualWeightLbs: Z,
       statutoryCapLbs: X,
       bridgeFormulaAllowedLbs: X,
       maxLegalWeightLbs: X,
-      compliant: Q <= X,
-      marginLbs: X - Q,
-      utilizationPct: Math.round(Q / X * 100)
-    }, oe = {
+      compliant: Z <= X,
+      marginLbs: X - Z,
+      utilizationPct: Math.round(Z / X * 100)
+    }, ne = {
       id: "drive",
       name: "Drive Axle (Single)",
       axleCount: 1,
@@ -718,70 +719,70 @@ function rt(t) {
       compliant: ee <= Y,
       marginLbs: Y - ee,
       utilizationPct: Math.round(ee / Y * 100)
-    }, ne = [];
-    return te.compliant || ne.push(`Steer axle overloaded by ${Math.abs(te.marginLbs).toLocaleString()} lbs.`), oe.compliant || ne.push(`Drive axle overloaded by ${Math.abs(oe.marginLbs).toLocaleString()} lbs.`), V > j && ne.push(`Gross Vehicle Weight (${V.toLocaleString()} lbs) exceeds maximum allowable ${j.toLocaleString()} lbs.`), {
+    }, oe = [];
+    return te.compliant || oe.push(`Steer axle overloaded by ${Math.abs(te.marginLbs).toLocaleString()} lbs.`), ne.compliant || oe.push(`Drive axle overloaded by ${Math.abs(ne.marginLbs).toLocaleString()} lbs.`), V > j && oe.push(`Gross Vehicle Weight (${V.toLocaleString()} lbs) exceeds maximum allowable ${j.toLocaleString()} lbs.`), {
       overallGvwLbs: V,
       maxLegalGvwLbs: j,
       gvwCompliant: V <= j,
       gvwMarginLbs: j - V,
-      groups: [te, oe],
-      allCompliant: te.compliant && oe.compliant && V <= j,
+      groups: [te, ne],
+      allCompliant: te.compliant && ne.compliant && V <= j,
       kpraFt: null,
       kpraCompliant: !0,
       kpraMaxFt: 40,
-      reasons: ne
+      reasons: oe
     };
   }
-  const r = t.tareSteerLbs ?? 10500, d = t.tareDriveLbs ?? 14e3, i = t.tareTrailerLbs ?? 10500, u = (t.trailerWheelbaseIn ?? 456) / 12, s = 4.33, a = 4.08, m = 36, g = 51, f = Math.max(0, Math.min(u, n)), L = e * (f / u), y = e * ((u - f) / u), I = y * 0.95, $ = y * 0.05, M = Math.round(r + $), p = Math.round(d + I), b = Math.round(i + L), c = M + p + b, v = {
+  const u = t.tareSteerLbs ?? 10500, s = t.tareDriveLbs ?? 14e3, r = t.tareTrailerLbs ?? 10500, d = (t.trailerWheelbaseIn ?? 456) / 12, i = 4.33, l = 4.08, p = 36, g = 51, f = Math.max(0, Math.min(d, o)), L = e * (f / d), x = e * ((d - f) / d), C = x * 0.95, k = x * 0.05, b = Math.round(u + k), h = Math.round(s + C), y = Math.round(r + L), c = b + h + y, M = {
     id: "steer",
     name: "Steering Axle (Single)",
     axleCount: 1,
     spacingFt: 0,
-    actualWeightLbs: M,
+    actualWeightLbs: b,
     statutoryCapLbs: 12500,
     // Practical fleet tire rating limit
     bridgeFormulaAllowedLbs: 2e4,
     maxLegalWeightLbs: 12500,
-    compliant: M <= 12500,
-    marginLbs: 12500 - M,
-    utilizationPct: Math.round(M / 12500 * 100)
-  }, h = se(s, 2), C = 34e3, S = Math.min(C, h), D = {
+    compliant: b <= 12500,
+    marginLbs: 12500 - b,
+    utilizationPct: Math.round(b / 12500 * 100)
+  }, m = ie(i, 2), S = 34e3, v = Math.min(S, m), F = {
     id: "drive_tandem",
     name: "Tractor Drive Tandem (2 axles)",
     axleCount: 2,
-    spacingFt: s,
-    actualWeightLbs: p,
-    statutoryCapLbs: C,
-    bridgeFormulaAllowedLbs: h,
-    maxLegalWeightLbs: S,
-    compliant: p <= S,
-    marginLbs: S - p,
-    utilizationPct: Math.round(p / S * 100)
-  }, k = se(a, 2), E = 34e3, W = Math.min(E, k), F = {
+    spacingFt: i,
+    actualWeightLbs: h,
+    statutoryCapLbs: S,
+    bridgeFormulaAllowedLbs: m,
+    maxLegalWeightLbs: v,
+    compliant: h <= v,
+    marginLbs: v - h,
+    utilizationPct: Math.round(h / v * 100)
+  }, E = ie(l, 2), $ = 34e3, P = Math.min($, E), U = {
     id: "trailer_tandem",
     name: "Trailer Tandem (2 axles)",
     axleCount: 2,
-    spacingFt: a,
-    actualWeightLbs: b,
-    statutoryCapLbs: E,
-    bridgeFormulaAllowedLbs: k,
-    maxLegalWeightLbs: W,
-    compliant: b <= W,
-    marginLbs: W - b,
-    utilizationPct: Math.round(b / W * 100)
-  }, _ = p + b, T = se(m, 4), z = Math.min(68e3, T), N = {
+    spacingFt: l,
+    actualWeightLbs: y,
+    statutoryCapLbs: $,
+    bridgeFormulaAllowedLbs: E,
+    maxLegalWeightLbs: P,
+    compliant: y <= P,
+    marginLbs: P - y,
+    utilizationPct: Math.round(y / P * 100)
+  }, _ = h + y, O = ie(p, 4), N = Math.min(68e3, O), D = {
     id: "inner_bridge",
     name: "Inner Bridge (Drive to Trailer, 4 axles)",
     axleCount: 4,
-    spacingFt: m,
+    spacingFt: p,
     actualWeightLbs: _,
     statutoryCapLbs: 68e3,
-    bridgeFormulaAllowedLbs: T,
-    maxLegalWeightLbs: z,
-    compliant: _ <= z,
-    marginLbs: z - _,
-    utilizationPct: Math.round(_ / z * 100)
-  }, q = se(g, 5), K = Math.min(8e4, q), A = {
+    bridgeFormulaAllowedLbs: O,
+    maxLegalWeightLbs: N,
+    compliant: _ <= N,
+    marginLbs: N - _,
+    utilizationPct: Math.round(_ / N * 100)
+  }, q = ie(g, 5), z = Math.min(8e4, q), A = {
     id: "outer_bridge",
     name: "Outer Bridge (Steer to Rear, 5 axles)",
     axleCount: 5,
@@ -789,97 +790,105 @@ function rt(t) {
     actualWeightLbs: c,
     statutoryCapLbs: 8e4,
     bridgeFormulaAllowedLbs: q,
-    maxLegalWeightLbs: K,
-    compliant: c <= K,
-    marginLbs: K - c,
-    utilizationPct: Math.round(c / K * 100)
-  }, J = t.kpraIn ? t.kpraIn / 12 : 39.5, O = 40, G = J <= O, Z = [v, D, F, N, A], ke = Z.every((ae) => ae.compliant), ie = c <= 8e4, B = [];
-  return v.compliant || B.push(`Steer axle overloaded: ${M.toLocaleString()} lbs exceeds ${v.maxLegalWeightLbs.toLocaleString()} lbs limit.`), D.compliant || B.push(`Drive tandem overloaded: ${p.toLocaleString()} lbs exceeds statutory 34,000 lbs limit.`), F.compliant || B.push(`Trailer tandem overloaded: ${b.toLocaleString()} lbs exceeds statutory 34,000 lbs limit.`), N.compliant || B.push(`Inner bridge group violation: ${_.toLocaleString()} lbs exceeds Bridge Formula B limit (${z.toLocaleString()} lbs for 4 axles at ${m}ft).`), (!A.compliant || !ie) && B.push(`Gross Vehicle Weight violation: ${c.toLocaleString()} lbs exceeds statutory 80,000 lbs federal cap.`), G || B.push(`California STAA Kingpin-to-Rear-Axle (KPRA) violation: ${J.toFixed(1)} ft exceeds 40.0 ft legal maximum.`), {
+    maxLegalWeightLbs: z,
+    compliant: c <= z,
+    marginLbs: z - c,
+    utilizationPct: Math.round(c / z * 100)
+  }, J = t.kpraIn ? t.kpraIn / 12 : 39.5, T = 40, G = J <= T, Q = [M, F, U, D, A], Ee = Q.every((ae) => ae.compliant), se = c <= 8e4, B = [];
+  return M.compliant || B.push(`Steer axle overloaded: ${b.toLocaleString()} lbs exceeds ${M.maxLegalWeightLbs.toLocaleString()} lbs limit.`), F.compliant || B.push(`Drive tandem overloaded: ${h.toLocaleString()} lbs exceeds statutory 34,000 lbs limit.`), U.compliant || B.push(`Trailer tandem overloaded: ${y.toLocaleString()} lbs exceeds statutory 34,000 lbs limit.`), D.compliant || B.push(`Inner bridge group violation: ${_.toLocaleString()} lbs exceeds Bridge Formula B limit (${N.toLocaleString()} lbs for 4 axles at ${p}ft).`), (!A.compliant || !se) && B.push(`Gross Vehicle Weight violation: ${c.toLocaleString()} lbs exceeds statutory 80,000 lbs federal cap.`), G || B.push(`California STAA Kingpin-to-Rear-Axle (KPRA) violation: ${J.toFixed(1)} ft exceeds 40.0 ft legal maximum.`), {
     overallGvwLbs: c,
     maxLegalGvwLbs: 8e4,
-    gvwCompliant: ie,
+    gvwCompliant: se,
     gvwMarginLbs: 8e4 - c,
-    groups: Z,
-    allCompliant: ke && ie && G,
+    groups: Q,
+    allCompliant: Ee && se && G,
     kpraFt: J,
     kpraCompliant: G,
-    kpraMaxFt: O,
+    kpraMaxFt: T,
     reasons: B
   };
 }
-const xe = {
+const Ie = {
   wood_hardwood: { label: "Clean Hardwood Deck", mu: 0.4 },
   smooth_steel: { label: "Smooth Clean Steel", mu: 0.2 },
   diamond_plate_steel: { label: "Diamond Plate Steel", mu: 0.3 },
   anti_slip_rubber: { label: "High-Friction Rubber Mats (≥0.6μ)", mu: 0.6 }
-}, lt = {
+}, rt = {
   strap_2in: { label: "2-inch Synthetic Web Strap", wllLbs: 3333, wllKg: 1512 },
   strap_4in: { label: "4-inch Heavy Winch Strap", wllLbs: 5400, wllKg: 2449 },
   chain_5_16_g70: { label: '5/16" Grade 70 Transport Chain', wllLbs: 4700, wllKg: 2132 },
   chain_3_8_g70: { label: '3/8" Grade 70 Transport Chain', wllLbs: 6600, wllKg: 2994 }
-}, ct = 2.2046226218;
-function dt(t, e, o) {
-  const n = "wood_hardwood", l = "strap_2in", r = xe[n].mu, d = lt[l], i = /* @__PURE__ */ new Map();
-  for (const y of e)
-    i.set(y.unitId, y);
-  const u = [], s = {
+}, lt = 2.2046226218;
+function ct(t, e, n) {
+  const o = "wood_hardwood", a = "strap_2in", u = Ie[o].mu, s = rt[a], r = /* @__PURE__ */ new Map();
+  for (const b of e)
+    r.set(b.unitId, b);
+  const d = [], i = [], l = new Set(t.map((b) => b.id)), p = e.filter((b) => !l.has(b.unitId)).map((b) => b.unitId), g = {
     strap_2in: 0,
     strap_4in: 0,
     chain_5_16_g70: 0,
     chain_3_8_g70: 0
   };
-  let a = 0;
-  for (const y of t) {
-    const I = i.get(y.id), $ = y.weightKg ?? 100, M = $ * ct, p = (I ? I.dx : y.dims[0]) / 1e3, b = p * 3.28084, c = I ? I.x <= 50 : !1;
-    c || a++;
-    const x = M * 0.8, v = M * 0.5, h = M * 0.5, C = M * 0.2, S = M * r, D = M * 0.5, k = $ * 0.5;
-    let E = 1;
-    b <= 5 ? E = M > 1100 ? 2 : 1 : b <= 10 ? E = 2 : E = 2 + Math.ceil((b - 10) / 10), !c && E < 2 && (E = 2);
-    const W = Math.ceil(D / d.wllLbs), F = Math.max(E, W);
-    let _ = l;
-    M >= 1e4 && !l.startsWith("chain") && (_ = "chain_3_8_g70"), s[_] = (s[_] ?? 0) + F;
-    const T = [];
-    c ? T.push("Resting against front bulkhead / forward block (0.8g deceleration supported).") : T.push("Uncontained forward motion; requires cross-strapping, chocking, or friction matting."), M >= 1e4 && T.push("Heavy cargo (≥10,000 lbs): Grade 70 transport chain direct tie-downs mandated under § 393.126."), u.push({
-      unitId: y.id,
-      label: y.label,
-      weightKg: $,
-      weightLbs: Math.round(M),
-      lengthM: p,
-      lengthFt: b,
-      blockedForward: c,
-      minTieDownsCount: F,
-      requiredAggregateWllLbs: Math.round(D),
-      requiredAggregateWllKg: Math.round(k),
-      recommendedHardware: _,
-      hardwareCount: F,
-      forwardRestraintRequiredLbs: Math.round(x),
+  let f = 0;
+  for (const b of t) {
+    const h = r.get(b.id);
+    if (!h) continue;
+    if (b.weightKg === null || !Number.isFinite(b.weightKg) || b.weightKg <= 0) {
+      i.push(b.id);
+      continue;
+    }
+    const y = b.weightKg, c = y * lt, I = (h ? h.dx : b.dims[0]) / 1e3, M = I * 3.28084, m = h ? h.x <= 50 : !1;
+    m || f++;
+    const S = c * 0.8, v = c * 0.5, F = c * 0.5, E = c * 0.2, $ = c * u, P = c * 0.5, U = y * 0.5;
+    let _ = 1;
+    M <= 5 ? _ = c > 1100 ? 2 : 1 : M <= 10 ? _ = 2 : _ = 2 + Math.ceil((M - 10) / 10), !m && _ < 2 && (_ = 2);
+    const O = Math.ceil(P / s.wllLbs), N = Math.max(_, O);
+    g[a] = (g[a] ?? 0) + N;
+    const D = [];
+    m ? D.push("Model places the unit near the front bulkhead; actual blocking strength and restraint are not verified.") : D.push("Uncontained forward motion; requires cross-strapping, chocking, or friction matting."), c >= 1e4 && D.push("Heavy cargo (≥10,000 lbs): commodity-specific securement requirements may apply; verify the cargo type and actual hardware with qualified personnel."), d.push({
+      unitId: b.id,
+      label: b.label,
+      weightKg: y,
+      weightLbs: Math.round(c),
+      lengthM: I,
+      lengthFt: M,
+      blockedForward: m,
+      minTieDownsCount: N,
+      requiredAggregateWllLbs: Math.round(P),
+      requiredAggregateWllKg: Math.round(U),
+      recommendedHardware: a,
+      hardwareCount: N,
+      forwardRestraintRequiredLbs: Math.round(S),
       rearRestraintRequiredLbs: Math.round(v),
-      lateralRestraintRequiredLbs: Math.round(h),
-      verticalRestraintRequiredLbs: Math.round(C),
-      frictionRestraintLbs: Math.round(S),
-      notes: T
+      lateralRestraintRequiredLbs: Math.round(F),
+      verticalRestraintRequiredLbs: Math.round(E),
+      frictionRestraintLbs: Math.round($),
+      notes: D
     });
   }
-  const m = u.reduce((y, I) => y + I.hardwareCount, 0), g = u.reduce((y, I) => y + I.requiredAggregateWllLbs, 0), f = u.reduce((y, I) => y + I.requiredAggregateWllKg, 0), L = [
-    `Deck Friction Rating: ${xe[n].label} (μ=${r}).`,
-    `Total Required Restraint Hardware: ${m} tie-downs across ${u.length} cargo articles.`,
-    `Total Minimum Working Load Limit: ${g.toLocaleString()} lbs (${Math.round(f).toLocaleString()} kg).`
+  const L = d.reduce((b, h) => b + h.hardwareCount, 0), x = d.reduce((b, h) => b + h.requiredAggregateWllLbs, 0), C = d.reduce((b, h) => b + h.requiredAggregateWllKg, 0), k = [
+    `Deck Friction Rating: ${Ie[o].label} (μ=${u}).`,
+    `Illustrative hardware count: ${L} tie-downs across ${d.length} modeled cargo articles.`,
+    `Illustrative working load limit estimate: ${x.toLocaleString()} lbs (${Math.round(C).toLocaleString()} kg).`
   ];
-  return a > 0 && L.push(
-    `${a} cargo unit(s) are not flush against the front bulkhead. Install forward dunnage, friction mats, or x-brace ratchet straps to counteract 0.8g forward emergency braking forces.`
+  return f > 0 && k.push(
+    `${f} cargo unit(s) are not flush against the front bulkhead in the model. Qualified personnel must assess actual blocking and restraint.`
   ), {
-    deckMaterial: n,
-    deckFrictionMu: r,
-    articles: u,
-    totalTieDownsCount: m,
-    totalRequiredWllLbs: g,
-    totalRequiredWllKg: f,
-    summaryHardware: s,
-    unblockedForwardCount: a,
-    recommendations: L
+    complete: e.length > 0 && i.length === 0 && p.length === 0,
+    unknownWeightUnitIds: i,
+    unmatchedPlacementUnitIds: p,
+    deckMaterial: o,
+    deckFrictionMu: u,
+    articles: d,
+    totalTieDownsCount: L,
+    totalRequiredWllLbs: x,
+    totalRequiredWllKg: C,
+    summaryHardware: g,
+    unblockedForwardCount: f,
+    recommendations: k
   };
 }
-function ut() {
+function dt() {
   const t = new Float32Array([
     // 0..7 cube vertices [x, y, z] in [0..1]
     0,
@@ -949,48 +958,48 @@ function ut() {
     0,
     7,
     3
-  ]), o = t.byteLength + e.byteLength, n = new Uint8Array(o);
-  n.set(new Uint8Array(t.buffer), 0), n.set(new Uint8Array(e.buffer), t.byteLength);
-  let l = "";
-  for (let i = 0; i < n.length; i++)
-    l += String.fromCharCode(n[i]);
-  const r = typeof globalThis.Buffer < "u";
-  return { bufferBase64: typeof btoa < "u" ? btoa(l) : r ? globalThis.Buffer.from(n).toString("base64") : "", byteLength: o };
+  ]), n = t.byteLength + e.byteLength, o = new Uint8Array(n);
+  o.set(new Uint8Array(t.buffer), 0), o.set(new Uint8Array(e.buffer), t.byteLength);
+  let a = "";
+  for (let r = 0; r < o.length; r++)
+    a += String.fromCharCode(o[r]);
+  const u = typeof globalThis.Buffer < "u";
+  return { bufferBase64: typeof btoa < "u" ? btoa(a) : u ? globalThis.Buffer.from(o).toString("base64") : "", byteLength: n };
 }
-function gt(t, e, o, n) {
-  const { bufferBase64: l, byteLength: r } = ut(), d = /* @__PURE__ */ new Map();
-  for (const y of o) d.set(y.id, y);
-  const i = [
+function ut(t, e, n, o) {
+  const { bufferBase64: a, byteLength: u } = dt(), s = /* @__PURE__ */ new Map();
+  for (const x of n) s.set(x.id, x);
+  const r = [
     { name: "TrailerBoundary", pbrMetallicRoughness: { baseColorFactor: [0.3, 0.4, 0.5, 0.25], metallicFactor: 0.1, roughnessFactor: 0.8 } },
     { name: "CargoBlue", pbrMetallicRoughness: { baseColorFactor: [0.18, 0.49, 0.86, 1], metallicFactor: 0.1, roughnessFactor: 0.6 } },
     { name: "CargoAmber", pbrMetallicRoughness: { baseColorFactor: [0.93, 0.6, 0, 1], metallicFactor: 0.1, roughnessFactor: 0.6 } },
     { name: "CargoEmerald", pbrMetallicRoughness: { baseColorFactor: [0.16, 0.65, 0.38, 1], metallicFactor: 0.1, roughnessFactor: 0.6 } },
     { name: "CargoViolet", pbrMetallicRoughness: { baseColorFactor: [0.55, 0.36, 0.86, 1], metallicFactor: 0.1, roughnessFactor: 0.6 } },
     { name: "CargoRose", pbrMetallicRoughness: { baseColorFactor: [0.88, 0.24, 0.44, 1], metallicFactor: 0.1, roughnessFactor: 0.6 } }
-  ], u = [], s = [], a = t.L / 1e3, m = t.W / 1e3, g = t.H / 1e3;
-  u.push({
+  ], d = [], i = [], l = t.L / 1e3, p = t.W / 1e3, g = t.H / 1e3;
+  d.push({
     name: `Equipment: ${t.id}`,
     mesh: 0,
     translation: [0, 0, 0],
-    scale: [a, g, m]
+    scale: [l, g, p]
     // glTF is Y-up: [X-len, Y-height, Z-width]
-  }), s.push(0), e.forEach((y, I) => {
-    const $ = d.get(y.unitId), M = y.stop ?? $?.stop ?? 1, p = 1 + (M - 1) % (i.length - 1), b = y.x / 1e3, c = y.z / 1e3, x = y.y / 1e3, v = y.dx / 1e3, h = y.dz / 1e3, C = y.dy / 1e3, S = u.length;
-    u.push({
-      name: `Cargo_${I + 1}: ${$?.label ?? y.unitId} (Stop ${M})`,
-      mesh: 1 + (p - 1),
-      translation: [b, c, x],
-      scale: [v, h, C]
-    }), s.push(S);
+  }), i.push(0), e.forEach((x, C) => {
+    const k = s.get(x.unitId), b = x.stop ?? k?.stop ?? 1, h = 1 + (b - 1) % (r.length - 1), y = x.x / 1e3, c = x.z / 1e3, I = x.y / 1e3, M = x.dx / 1e3, m = x.dz / 1e3, S = x.dy / 1e3, v = d.length;
+    d.push({
+      name: `Cargo_${C + 1}: ${k?.label ?? x.unitId} (Stop ${b})`,
+      mesh: 1 + (h - 1),
+      translation: [y, c, I],
+      scale: [M, m, S]
+    }), i.push(v);
   });
   const f = [];
-  i.forEach((y, I) => {
+  r.forEach((x, C) => {
     f.push({
       primitives: [
         {
           attributes: { POSITION: 0 },
           indices: 1,
-          material: I
+          material: C
         }
       ]
     });
@@ -1004,12 +1013,12 @@ function gt(t, e, o, n) {
     scenes: [
       {
         name: "Cargo Fit Loading Plan",
-        nodes: s
+        nodes: i
       }
     ],
-    nodes: u,
+    nodes: d,
     meshes: f,
-    materials: i,
+    materials: r,
     accessors: [
       {
         // Accessor 0: Positions (8 vertices)
@@ -1054,23 +1063,23 @@ function gt(t, e, o, n) {
     ],
     buffers: [
       {
-        uri: `data:application/octet-stream;base64,${l}`,
-        byteLength: r
+        uri: `data:application/octet-stream;base64,${a}`,
+        byteLength: u
       }
     ]
   };
   return JSON.stringify(L, null, 2);
 }
-function mt(t) {
+function gt(t) {
   const e = {};
-  for (let o = 2; o < t.length; o++) {
-    const n = t[o];
-    n === "solve" || n === "help" || n === "version" ? e.command = n : n === "--manifest" || n === "-m" ? e.manifestPath = t[++o] : n === "--equipment" || n === "-e" ? e.equipmentId = t[++o] : n === "--out" || n === "-o" ? e.outputPath = t[++o] : n === "--gltf" ? e.gltfPath = t[++o] : n === "--report" && (e.reportPath = t[++o]);
+  for (let n = 2; n < t.length; n++) {
+    const o = t[n];
+    o === "solve" || o === "help" || o === "version" ? e.command = o : o === "--manifest" || o === "-m" ? e.manifestPath = t[++n] : o === "--equipment" || o === "-e" ? e.equipmentId = t[++n] : o === "--out" || o === "-o" ? e.outputPath = t[++n] : o === "--gltf" ? e.gltfPath = t[++n] : o === "--report" && (e.reportPath = t[++n]);
   }
   return e;
 }
-function $e(t) {
-  const e = mt(t);
+function mt(t) {
+  const e = gt(t);
   if (!e.command || e.command === "help")
     return console.log(`
 CargoFit Product 01 — Explainable Cargo Fit & Load Planning CLI
@@ -1090,22 +1099,22 @@ Options:
   if (e.command === "solve") {
     if (!e.manifestPath)
       return console.error("Error: --manifest argument is required."), 1;
-    const o = Ae(re(e.manifestPath), "utf-8"), n = He(o), l = n.issues.filter((m) => m.severity === "error");
-    if (l.length > 0) {
+    const n = Fe(re(e.manifestPath), "utf-8"), o = ze(n), a = o.issues.filter((p) => p.severity === "error");
+    if (a.length > 0) {
       console.error("Manifest parsing errors:");
-      for (const m of l) console.error(`  - Line ${m.line}: ${m.message}`);
+      for (const p of a) console.error(`  - Line ${p.line}: ${p.message}`);
       return 1;
     }
-    const r = Ie(n.rows);
-    console.log(`Loaded manifest: ${n.rows.length} row(s), ${r.length} total piece(s).`);
-    const d = {
+    const u = Me(o.rows);
+    console.log(`Loaded manifest: ${o.rows.length} row(s), ${u.length} total piece(s).`);
+    const s = {
       id: e.equipmentId || "53ft-trailer",
       name: "53ft Dry Van Trailer",
       source: "preset",
       length: 16150,
       width: 2480,
       height: 2790,
-      unit: "m",
+      unit: "mm",
       payload: 20400,
       massUnit: "kg",
       doorWidth: 2430,
@@ -1114,34 +1123,34 @@ Options:
       cost: 1850,
       currency: "USD",
       costSource: "user"
-    }, i = ve(d);
-    if (!i)
+    }, r = ve(s);
+    if (!r)
       return console.error("Error: Equipment profile normalization failed."), 1;
-    const u = {
-      rows: n.rows,
-      equipment: [d],
+    const d = {
+      rows: o.rows,
+      equipment: [s],
       settings: nt
     };
-    console.log(`Solving packing plan for ${i.name} (${i.L}×${i.W}×${i.H} mm)...`);
-    const { results: s } = it(u), a = s[0];
-    if (console.log(`Status: ${a.status}`), console.log(`Placed: ${a.metrics.placedUnits} of ${a.metrics.totalUnits} pieces`), console.log(`Volume Utilization: ${a.metrics.occupiedVolumePct.toFixed(1)}%`), console.log(`Loaded Weight: ${a.metrics.loadedWeightKg.toLocaleString()} kg`), a.arrangements.length > 0) {
-      const m = a.arrangements[0], g = rt({
-        equipmentLengthMm: i.L,
-        cargoWeightKg: a.metrics.loadedWeightKg,
-        cargoCogXMm: a.metrics.cogX ?? i.L / 2
+    console.log(`Solving packing plan for ${r.name} (${r.L}×${r.W}×${r.H} mm)...`);
+    const { results: i } = it(d), l = i[0];
+    if (console.log(`Status: ${l.status}`), console.log(`Placed: ${l.metrics.placedUnits} of ${l.metrics.totalUnits} pieces`), console.log(`Volume Utilization: ${l.metrics.occupiedVolumePct.toFixed(1)}%`), console.log(`Loaded Weight: ${l.metrics.loadedWeightKg.toLocaleString()} kg`), l.arrangements.length > 0) {
+      const p = l.arrangements[0], g = l.metrics.cogX == null ? null : at({
+        equipmentLengthMm: r.L,
+        cargoWeightKg: l.metrics.loadedWeightKg,
+        cargoCogXMm: l.metrics.cogX
       });
-      console.log(`Bridge Formula B Compliant: ${g.allCompliant ? "YES" : "NO"}`), console.log(`Overall GVW: ${g.overallGvwLbs.toLocaleString()} lbs (Legal Max: ${g.maxLegalGvwLbs.toLocaleString()} lbs)`);
-      const f = dt(r, m.placements);
-      if (console.log(`Required Tie-Downs: ${f.totalTieDownsCount} straps/chains (Min WLL: ${f.totalRequiredWllLbs.toLocaleString()} lbs)`), e.outputPath) {
+      g ? (console.log(`Illustrative bridge estimate: ${g.allCompliant ? "within assumed benchmarks" : "assumed benchmark exceeded"}; actual axle and legal status unverified`), console.log(`Estimated GVW: ${g.overallGvwLbs.toLocaleString()} lbs (assumed benchmark: ${g.maxLegalGvwLbs.toLocaleString()} lbs)`)) : console.log("Illustrative bridge estimate unavailable: placed weight or center of gravity is unknown.");
+      const f = ct(u, p.placements);
+      if (console.log(f.complete ? `Illustrative restraint estimate: ${f.totalTieDownsCount} tie-downs (modeled WLL: ${f.totalRequiredWllLbs.toLocaleString()} lbs); actual securement unverified` : "Illustrative restraint estimate unavailable: placed units or weights are missing or unknown."), e.outputPath) {
         const L = {
-          result: a,
+          result: l,
           bridge: g,
           securement: f
         };
         ue(re(e.outputPath), JSON.stringify(L, null, 2), "utf-8"), console.log(`Saved plan JSON to ${e.outputPath}`);
       }
       if (e.gltfPath) {
-        const L = gt(i, m.placements, r);
+        const L = ut(r, p.placements, u);
         ue(re(e.gltfPath), L, "utf-8"), console.log(`Saved 3D CAD glTF to ${e.gltfPath}`);
       }
     }
@@ -1149,12 +1158,8 @@ Options:
   }
   return 0;
 }
-if (typeof process < "u" && process.argv && process.argv[1]?.includes("cargofit")) {
-  const t = $e(process.argv);
-  t !== 0 && process.exit(t);
-}
-$e(process.argv);
+process.exitCode = mt(process.argv);
 export {
-  mt as parseArgs,
-  $e as runCli
+  gt as parseArgs,
+  mt as runCli
 };

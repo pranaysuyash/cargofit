@@ -70,7 +70,7 @@ export const DunnageAirbagModal: React.FC<DunnageAirbagModalProps> = ({
               49 CFR § 393.106 Cargo Void &amp; Inflatable Dunnage Airbag Advisor
             </h2>
             <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>
-              Federal securement audit: immobilize lateral and longitudinal cargo voids under 0.8g deceleration
+              Illustrative geometric screening only. The six-inch threshold and dunnage choices are model assumptions, not a legal or physical assessment.
             </p>
           </div>
           <button
@@ -100,8 +100,8 @@ export const DunnageAirbagModal: React.FC<DunnageAirbagModalProps> = ({
             style={{
               padding: '12px 16px',
               borderRadius: 8,
-              background: report.statutoryCompliant ? '#f0fdf4' : '#fffbeb',
-              border: `1px solid ${report.statutoryCompliant ? '#bbf7d0' : '#fde68a'}`,
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
               marginBottom: 16,
               display: 'flex',
               alignItems: 'center',
@@ -109,16 +109,16 @@ export const DunnageAirbagModal: React.FC<DunnageAirbagModalProps> = ({
             }}
           >
             <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: report.statutoryCompliant ? '#166534' : '#92400e' }}>
-                {report.statutoryCompliant ? '✓ 49 CFR § 393.106 FULLY COMPLIANT' : '⚠️ STATUTORY VOID MITIGATION REQUIRED'}
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#92400e' }}>
+                {report.statutoryCompliant ? 'No modeled void alert; actual securement unknown' : 'Modeled voids require physical review'}
               </div>
               <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>
-                {report.regulatoryNotice}
+                Geometry and assumed friction are illustrative. Qualified personnel must inspect actual voids and choose appropriate restraints.
               </div>
             </div>
             <div
               style={{
-                background: report.statutoryCompliant ? '#22c55e' : '#f59e0b',
+                background: '#b45309',
                 color: '#fff',
                 fontSize: 11,
                 fontWeight: 800,
@@ -180,7 +180,7 @@ export const DunnageAirbagModal: React.FC<DunnageAirbagModalProps> = ({
                       {v.locationDescription}
                     </div>
                     <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                      Gap Size: <b>{v.gapInches}" ({Math.round(v.gapMm)} mm)</b> · Required: <b>{v.recommendedDunnage.sizeDescription}</b>
+                      Gap Size: <b>{v.gapInches}" ({Math.round(v.gapMm)} mm)</b> · Suggested model option: <b>{v.recommendedDunnage.sizeDescription}</b>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>

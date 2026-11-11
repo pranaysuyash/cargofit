@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseEdi204 } from '../src/engine/edi204';
-import { generateEdi214 } from '../src/engine/edi214';
+import { generateEdi214, type Edi214Options } from '../src/engine/edi214';
 import type { PlanFile } from '../src/engine/report';
 
 const SAMPLE_EDI_204 = `
@@ -137,27 +137,46 @@ describe('ANSI X12 EDI 214 Carrier Shipment Status Generator', () => {
       limitations: [],
     };
 
-    const edi = generateEdi214(mockPlan, {
+    expect(() => generateEdi214(mockPlan)).toThrow(/required/i);
+    const entered: Edi214Options = {
       carrierScac: 'SWFT',
       shipperId: 'ACME',
+      shipmentId: 'SHP-12345',
       bolNumber: 'BOL-998877',
       sealNumber: 'SEAL-445566',
+      equipmentId: 'TRAILER-123',
       statusCode: 'X3',
+      statusReason: 'NS',
       originCity: 'Dallas',
       originState: 'TX',
-    });
+      date: new Date('2026-10-20T12:00:00Z'),
+      generatedAt: new Date('2026-10-21T13:00:00Z'),
+      controlNumber: '000000123',
+      usageIndicator: 'T',
+      reportedWeightLbs: 4000,
+      reportedPieceCount: 2,
+    };
+    const edi = generateEdi214(mockPlan, entered);
 
     expect(edi).toContain('ISA*00*');
     expect(edi).toContain('GS*QM*SWFT*ACME');
+    expect(edi).toContain('GS*QM*SWFT*ACME*20261021*1300');
     expect(edi).toContain('ST*214*0001');
-    expect(edi).toContain('B10*SHP-ABCDEF01*BOL-998877*SWFT');
+    expect(edi).toContain('B10*SHP-12345*BOL-998877*SWFT');
     expect(edi).toContain('L11*SEAL-445566*SE');
-    expect(edi).toContain('L11*VAN-53*EQ');
-    expect(edi).toContain('AT7*X3*NS*');
+    expect(edi).toContain('L11*TRAILER-123*EQ');
+    expect(edi).toContain('AT7*X3*NS***20261020*1200*UT');
     expect(edi).toContain('MS1*Dallas*TX*USA');
-    expect(edi).toContain('AT8*G*L*4000*2*PLT');
-    expect(edi).toContain('SE*9*0001');
+    expect(edi).toContain('AT8*G*L*4000*2');
+    expect(edi).toContain('SE*8*0001');
+    expect(edi).not.toContain('MAN*GM*');
+    const withoutOptional = generateEdi214(mockPlan, { ...entered, sealNumber: undefined, equipmentId: undefined, reportedWeightLbs: undefined, reportedPieceCount: undefined });
+    expect(withoutOptional).not.toContain('*SE~');
+    expect(withoutOptional).not.toContain('AT8*');
+    expect(() => generateEdi214(mockPlan, { ...entered, shipmentId: 'SHP*FAKE' })).toThrow();
+    expect(() => generateEdi214(mockPlan, { ...entered, reportedPieceCount: undefined })).toThrow();
+    expect(() => generateEdi214(mockPlan, { ...entered, statusReason: 'N' })).toThrow();
     expect(edi).toContain('GE*1*1');
-    expect(edi).toContain('IEA*1*000000001');
+    expect(edi).toContain('IEA*1*000000123');
   });
 });
