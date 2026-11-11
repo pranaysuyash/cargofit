@@ -8,6 +8,7 @@ import {
   STANDARD_53FT_REEFER,
 } from '../engine/multiTempBulkhead';
 import { CargoRow } from '../engine/types';
+import { IconAlertTriangle, IconCheck, IconSnowflake, IconX, IconZap } from './icons';
 
 interface MultiTempBulkheadModalProps {
   cargoRows: CargoRow[];
@@ -116,8 +117,8 @@ export const MultiTempBulkheadModal: React.FC<MultiTempBulkheadModalProps> = ({
           }}
         >
           <div>
-            <h3 id="bulkhead-modal-title" style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0f172a' }}>
-              ❄️ 53-ft Multi-Temp Reefer Bulkhead Simulator
+            <h3 id="bulkhead-modal-title" style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <IconSnowflake size={18} /> 53-ft Multi-Temp Reefer Bulkhead Simulator
             </h3>
             <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
               Insulated moveable bulkhead (R-14) partitioning Frozen (-10°F), Chilled (34°F) & Ambient (65°F) zones.
@@ -135,7 +136,7 @@ export const MultiTempBulkheadModal: React.FC<MultiTempBulkheadModalProps> = ({
             }}
             aria-label="Close"
           >
-            ✕
+            <IconX size={18} />
           </button>
         </div>
 
@@ -151,9 +152,9 @@ export const MultiTempBulkheadModal: React.FC<MultiTempBulkheadModalProps> = ({
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.75rem', color: '#94a3b8' }}>
-              <span>⬅️ Nose (Primary Evaporator)</span>
+              <span>&larr; Nose (Primary Evaporator)</span>
               <span>Bulkhead at {bulkheadPosIn}" ({Math.round(bulkheadPosIn / 12)} ft)</span>
-              <span>Tail Doors (Secondary Fan) ➡️</span>
+              <span>Tail Doors (Secondary Fan) &rarr;</span>
             </div>
 
             <div
@@ -258,9 +259,12 @@ export const MultiTempBulkheadModal: React.FC<MultiTempBulkheadModalProps> = ({
                   fontSize: '0.75rem',
                   fontWeight: 600,
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
                 }}
               >
-                ⚡ Auto-Balance by Manifest Ratio
+                <IconZap size={13} /> Auto-Balance by Manifest Ratio
               </button>
             </div>
             <input
@@ -342,7 +346,12 @@ export const MultiTempBulkheadModal: React.FC<MultiTempBulkheadModalProps> = ({
                     color: v.severity === 'CRITICAL_OOS' ? '#991b1b' : '#92400e',
                   }}
                 >
-                  <strong>{v.severity === 'CRITICAL_OOS' ? '🚫 Out-of-Service Risk' : '⚠️ Airflow Warning'}:</strong> {v.message}
+                  <strong>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, verticalAlign: 'middle', marginRight: 4 }}>
+                      <IconAlertTriangle size={14} />
+                      {v.severity === 'CRITICAL_OOS' ? 'Out-of-Service Risk' : 'Airflow Warning'}:
+                    </span>
+                  </strong> {v.message}
                 </div>
               ))}
             </div>
@@ -364,8 +373,8 @@ export const MultiTempBulkheadModal: React.FC<MultiTempBulkheadModalProps> = ({
             </div>
             <div style={{ background: '#f1f5f9', padding: '10px', borderRadius: 6, textAlign: 'center' }}>
               <div style={{ fontSize: '0.7rem', color: '#64748b' }}>FSMA Food Safety Status</div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 700, color: planResult.valid ? '#16a34a' : '#dc2626' }}>
-                {planResult.valid ? '✅ COMPLIANT' : '❌ VIOLATIONS'}
+              <div style={{ fontSize: '1.05rem', fontWeight: 700, color: planResult.valid ? '#16a34a' : '#dc2626', display: 'inline-flex', alignItems: 'center', gap: 5, justifyContent: 'center' }}>
+                {planResult.valid ? <><IconCheck size={14} /> COMPLIANT</> : <><IconAlertTriangle size={14} /> VIOLATIONS</>}
               </div>
             </div>
           </div>
@@ -374,7 +383,7 @@ export const MultiTempBulkheadModal: React.FC<MultiTempBulkheadModalProps> = ({
           {planResult.recommendations.length > 0 && (
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '10px 14px' }}>
               <strong style={{ fontSize: '0.75rem', color: '#166534', display: 'block', marginBottom: 4 }}>
-                💡 Operational Best Practices:
+                Operational Best Practices:
               </strong>
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.75rem', color: '#15803d' }}>
                 {planResult.recommendations.map((rec, i) => (
@@ -427,9 +436,12 @@ export const MultiTempBulkheadModal: React.FC<MultiTempBulkheadModalProps> = ({
               fontSize: '0.85rem',
               fontWeight: 600,
               cursor: planResult.valid ? 'pointer' : 'not-allowed',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
             }}
           >
-            Apply Bulkhead Plan ❄️
+            <IconSnowflake size={14} /> Apply Bulkhead Plan
           </button>
         </div>
       </div>

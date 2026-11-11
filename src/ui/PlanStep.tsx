@@ -23,6 +23,7 @@ import { artifactScope, saveModeledArtifact } from '../engine/modeledArtifacts';
 import type { Placement } from '../engine/types';
 import type { AppApi } from './App';
 import { NumInput, StatusBadge } from './common';
+import { IconFileText, IconPackage, IconSnowflake, IconWrench } from './icons';
 
 type View = 'iso' | 'top' | 'side';
 
@@ -230,7 +231,7 @@ export function PlanStep(p: AppApi) {
     const [dx, dy, dz] = orientationsFor(u)[0];
     setWorking([...working, { unitId: id, rowUid: u.rowUid, label: u.label, x: 0, y: 0, z: 0, dx, dy, dz, order: Math.max(0, ...working.map((w) => w.order)) + 1 }]);
     setSel(id);
-    p.notify('warn', `${id} added at the origin — move it; the validator flags any overlap.`);
+    p.notify('warn', `${id} added at the origin. Move it; the validator flags any overlap.`);
   };
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -334,7 +335,7 @@ export function PlanStep(p: AppApi) {
 
       <div className={`status-strip ${edited ? 'edited' : ''}`}>
         <StatusBadge status={result.status} full />
-        {edited && <span className="chip warn">Manually edited — solver status above no longer applies</span>}
+        {edited && <span className="chip warn">Manually edited (solver status above no longer applies)</span>}
         {verdict && <b className={violations.length ? 'bad-t' : 'ok-t'}>{verdict}</b>}
         {result.reasons.slice(0, 2).map((r, i) => <span key={i} className="reason-line">{r.message} <i>→ {r.action}</i></span>)}
       </div>
@@ -395,10 +396,10 @@ export function PlanStep(p: AppApi) {
                 type="button"
                 onClick={() => setIsTandemModalOpen(true)}
                 className="btn sm"
-                style={{ marginLeft: 8, fontWeight: 700, whiteSpace: 'nowrap' }}
+                style={{ marginLeft: 8, fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                 aria-label="Re-balance Tandem Pins for this Leg"
               >
-                Slide Tandem to Re-Balance ⚙️
+                <IconWrench size={12} /> Slide Tandem to Re-Balance
               </button>
             </div>
           )}
@@ -432,10 +433,10 @@ export function PlanStep(p: AppApi) {
                   type="button"
                   onClick={() => setIsTandemModalOpen(true)}
                   className="btn sm"
-                  style={{ marginLeft: 6, fontWeight: 700 }}
+                  style={{ marginLeft: 6, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                   aria-label="Adjust Trailer Tandem and Fifth Wheel Pins"
                 >
-                  Adjust Pins ⚙️
+                  <IconWrench size={12} /> Adjust Pins
                 </button>
               </div>
             )}
@@ -468,10 +469,10 @@ export function PlanStep(p: AppApi) {
                 type="button"
                 onClick={() => setIsNmfcModalOpen(true)}
                 className="chip ok"
-                style={{ cursor: 'pointer', border: 'none', fontWeight: 700 }}
+                style={{ cursor: 'pointer', border: 'none', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                 aria-label="Audit NMFC Freight Density and LTL Class"
               >
-                Class Advisor 📊
+                <IconFileText size={12} /> Class Advisor
               </button>
             </div>
             <div className="compliance-cell">
@@ -492,10 +493,10 @@ export function PlanStep(p: AppApi) {
                 type="button"
                 onClick={() => setIsBulkheadModalOpen(true)}
                 className="chip ok"
-                style={{ cursor: 'pointer', border: 'none', fontWeight: 700 }}
+                style={{ cursor: 'pointer', border: 'none', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                 aria-label="Simulate 53ft Multi-Temp Bulkheads & FSMA Thermal Zones"
               >
-                Bulkhead Zones ❄️
+                <IconSnowflake size={12} /> Bulkhead Zones
               </button>
             </div>
             <div className="compliance-cell">
@@ -504,10 +505,10 @@ export function PlanStep(p: AppApi) {
                 type="button"
                 onClick={() => setIsCompressionModalOpen(true)}
                 className="chip ok"
-                style={{ cursor: 'pointer', border: 'none', fontWeight: 700 }}
+                style={{ cursor: 'pointer', border: 'none', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                 aria-label="Audit Corrugated Carton Compressive Strength & Stacking Crush Limits"
               >
-                Stack Crush BCT 📦
+                <IconPackage size={12} /> Stack Crush BCT
               </button>
             </div>
           </div>
@@ -672,13 +673,13 @@ export function PlanStep(p: AppApi) {
 
             <div className="dock-hud-side">
               <div className="dock-compass">
-                <span className="compass-t">FRONT (NOSE) ⬆</span>
+                <span className="compass-t">FRONT (NOSE) &uarr;</span>
                 <div className="compass-mid">
-                  <span>⬅ DRIVER</span>
+                  <span>&larr; DRIVER</span>
                   <span className="compass-dot">+</span>
                   <span>CURB &rarr;</span>
                 </div>
-                <span className="compass-b">REAR DOOR ⬇</span>
+                <span className="compass-b">REAR DOOR &darr;</span>
               </div>
 
               {metrics.axleEst && (
@@ -770,7 +771,7 @@ export function PlanStep(p: AppApi) {
           </div>
 
           <div className="seq">
-            <button className="btn sm" disabled={reduced || working.length < 2} title={reduced ? 'Reduced motion is on — use the slider' : 'Play loading sequence (Space)'}
+            <button className="btn sm" disabled={reduced || working.length < 2} title={reduced ? 'Reduced motion is on; use the slider' : 'Play loading sequence (Space)'}
               onClick={() => { if (playing) setPlaying(false); else { setUpTo(0); setPlaying(true); } }}>{playing ? 'Pause' : 'Play Sequence'}</button>
             <input type="range" min={0} max={working.length} value={upTo ?? working.length} aria-label="Loading step"
               onChange={(e) => { setPlaying(false); const v = Number(e.target.value); setUpTo(v >= working.length ? null : v); }} />
@@ -926,10 +927,10 @@ export function PlanStep(p: AppApi) {
       </div>
 
       <div className="panel">
-        <div className="panel-h"><b>What was checked — and what was not</b><span>solver {result.solver.version} · seed {result.solver.seed} · {result.solver.attempts}/{result.solver.budget} attempts · {result.solver.ms} ms</span></div>
+        <div className="panel-h"><b>What was checked and what was not</b><span>solver {result.solver.version} · seed {result.solver.seed} · {result.solver.attempts}/{result.solver.budget} attempts · {result.solver.ms} ms</span></div>
         <ul className="checks">
           {result.checks.map((c) => (
-            <li key={c.id} className={c.state}><span className="cs">{c.state === 'verified' ? 'Checked' : c.state === 'not_modeled' ? 'Not modeled' : c.state === 'not_declared' ? 'Not declared' : 'Unknown'}</span><b>{c.label}</b><span className="muted small"> — {c.note}</span></li>))}
+            <li key={c.id} className={c.state}><span className="cs">{c.state === 'verified' ? 'Checked' : c.state === 'not_modeled' ? 'Not modeled' : c.state === 'not_declared' ? 'Not declared' : 'Unknown'}</span><b>{c.label}</b><span className="muted small"> ({c.note})</span></li>))}
         </ul>
       </div>
       <div className="foot-actions"><button className="btn" onClick={() => p.go('decision')}>← Compare</button><button className="btn primary" onClick={() => p.go('versions')}>Next: save & export →</button></div>

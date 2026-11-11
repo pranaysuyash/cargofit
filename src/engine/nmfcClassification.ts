@@ -90,9 +90,9 @@ export function classifyFreightDensity(input: NmfcClassificationInput): NmfcClas
 
   let auditExplanation = `Density: ${densityPcf.toFixed(1)} lbs/ft³ maps to statutory NMFC Class ${tier.classNumber} (${tier.description}).`;
   if (isDimWeightPenaltyActive) {
-    auditExplanation += ` ⚠ DIM weight penalty active: Cube-out exceeds weight limit by ${dimWeightOverageLbs.toLocaleString()} lbs (DIM factor ${dimFactor}). Carrier will bill ${billableWeightLbs.toLocaleString()} lbs.`;
+    auditExplanation += ` DIM weight penalty active: Cube-out exceeds weight limit by ${dimWeightOverageLbs.toLocaleString()} lbs (DIM factor ${dimFactor}). Carrier will bill ${billableWeightLbs.toLocaleString()} lbs.`;
   } else {
-    auditExplanation += ` ✓ Actual weight governs billing (${actualWeight.toLocaleString()} lbs billable).`;
+    auditExplanation += ` Actual weight governs billing (${actualWeight.toLocaleString()} lbs billable).`;
   }
 
   return {

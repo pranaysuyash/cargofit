@@ -1,5 +1,6 @@
 import React from 'react';
 import { DunnageComplianceReport } from '../engine/dunnageVoidCalculator';
+import { IconX } from './icons';
 
 interface DunnageAirbagModalProps {
   isOpen: boolean;
@@ -89,7 +90,7 @@ export const DunnageAirbagModal: React.FC<DunnageAirbagModalProps> = ({
               justifyContent: 'center',
             }}
           >
-            ✕
+            <IconX size={18} />
           </button>
         </div>
 
@@ -121,7 +122,7 @@ export const DunnageAirbagModal: React.FC<DunnageAirbagModalProps> = ({
                 background: '#b45309',
                 color: '#fff',
                 fontSize: 11,
-                fontWeight: 800,
+                fontWeight: 700,
                 padding: '4px 8px',
                 borderRadius: 4,
                 textTransform: 'uppercase',
@@ -135,17 +136,17 @@ export const DunnageAirbagModal: React.FC<DunnageAirbagModalProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
             <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Level 1 Airbags (36×48)</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#0284c7', margin: '4px 0' }}>{report.airbagSummary.level1AirbagsCount}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: '#0284c7', margin: '4px 0' }}>{report.airbagSummary.level1AirbagsCount}</div>
               <div style={{ fontSize: 11, color: '#64748b' }}>Lateral voids (2.5–3.0 PSI)</div>
             </div>
             <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Level 2 Airbags (48×84)</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#8b5cf6', margin: '4px 0' }}>{report.airbagSummary.level2AirbagsCount}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: '#0d9488', margin: '4px 0' }}>{report.airbagSummary.level2AirbagsCount}</div>
               <div style={{ fontSize: 11, color: '#64748b' }}>Rear drop voids (4.5 PSI)</div>
             </div>
             <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Rubber Friction Mats</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: report.requiresFrictionMats ? '#d97706' : '#10b981', margin: '4px 0' }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: report.requiresFrictionMats ? '#d97706' : '#10b981', margin: '4px 0' }}>
                 {report.airbagSummary.frictionMatsCount}
               </div>
               <div style={{ fontSize: 11, color: '#64748b' }}>Floor μ = {report.deckFrictionMu} (Req ≥ 0.5μ)</div>

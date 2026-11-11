@@ -249,10 +249,11 @@ export function App() {
   }
 
   return (
-    <div className="shell">
-      <a href="#main" className="skip-link">Skip to main content</a>
+    <>
       <SuiteDock currentProductId="product-01-cargo-fit" />
-      <header className="topbar">
+      <div className="shell">
+        <a href="#main" className="skip-link">Skip to main content</a>
+        <header className="topbar">
         <a className="brand" href="#/" aria-label="Cargo Fit home"><span className="mark" aria-hidden="true" />Cargo Fit<span className="tag">Product 01 · working title</span></a>
         <input className="name" aria-label="Scenario name" value={scenario.name} disabled={!!readOnly}
           onChange={(e) => setScenarioSafe((s) => ({ ...s, name: e.target.value }))} />
@@ -312,7 +313,8 @@ export function App() {
       <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => <div key={t.id} className={`toast ${t.tone}`}>{t.text}</div>)}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

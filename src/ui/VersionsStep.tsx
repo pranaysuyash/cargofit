@@ -46,14 +46,22 @@ export function VersionsStep(p: AppApi) {
   const edited = !!(key && p.edits[key]);
   const ready = !!result && !p.stale && p.solver.state.phase === 'done';
   let legacyArtifacts: ReturnType<typeof readLegacyModeledArtifacts> | null = null;
-  try { legacyArtifacts = readLegacyModeledArtifacts(window.localStorage); } catch {}
+  try {
+    legacyArtifacts = readLegacyModeledArtifacts(window.localStorage);
+  } catch (err) {
+    console.warn('Failed to read legacy modeled artifacts from storage:', err);
+  }
 
   const makePlan = () => {
     if (!result) return null;
     const placements = (key && p.edits[key]) || result.arrangements[arrIdx].placements;
     const scope = artifactScope(scenario, result.equipmentId, arrIdx, placements, 0);
     let storage: Storage | null = null;
-    try { storage = window.localStorage; } catch {}
+    try {
+      storage = window.localStorage;
+    } catch (err) {
+      console.warn('LocalStorage unavailable in browser context:', err);
+    }
     const activeTandemConfig = selectModeledArtifact(storage, 'tandem', p.tandemConfig, scope);
     const activeNmfcSummary = selectModeledArtifact(storage, 'nmfc', p.nmfcSummary, scope);
     return buildPlanFile({
@@ -132,11 +140,11 @@ export function VersionsStep(p: AppApi) {
     if (kind === 'open') {
       const w = window.open('', '_blank');
       if (w) { w.document.write(buildHtmlReport(plan)); w.document.close(); ok = true; }
-      else p.notify('err', 'Pop-up blocked — use “Download report” instead.');
-      if (ok) p.notify('ok', 'Report opened in a new tab — use your browser’s Print → Save as PDF.');
+      else p.notify('err', 'Pop-up blocked. Use “Download report” instead.');
+      if (ok) p.notify('ok', 'Report opened in a new tab (use your browser Print -> Save as PDF).');
       return;
     }
-    p.notify(ok ? 'ok' : 'err', ok ? `Exported ${kind.toUpperCase()}${plan.validation.passed ? '' : ` — note: ${plan.validation.violations.length} validator violation(s) are recorded in the file`}.` : 'Download failed in this browser.');
+    p.notify(ok ? 'ok' : 'err', ok ? `Exported ${kind.toUpperCase()}${plan.validation.passed ? '' : ` (note: ${plan.validation.violations.length} validator violation(s) recorded)`}.` : 'Download failed in this browser.');
   };
 
   const compared = useMemo(() => {
@@ -323,7 +331,7 @@ export function VersionsStep(p: AppApi) {
         {compared && (
           <div className="delta">
             <div className="panel-h"><b>{compared.sc.name} r{compared.rev.rev} → current</b><button className="btn sm ghost" onClick={() => setCmp(null)}>Close</button></div>
-            {compared.rows.length === 0 ? <p>Same manifest as r{compared.rev.rev}.</p> : <ul className="chg">{compared.rows.map((c) => <li key={c.uid}><b>{c.kind}</b> {c.label}{c.fields.length ? ` — ${c.fields.join(', ')}` : ''}</li>)}</ul>}
+            {compared.rows.length === 0 ? <p>Same manifest as r{compared.rev.rev}.</p> : <ul className="chg">{compared.rows.map((c) => <li key={c.uid}><b>{c.kind}</b> {c.label}{c.fields.length ? `: ${c.fields.join(', ')}` : ''}</li>)}</ul>}
             <table className="grid slim" aria-label="Revision comparison"><thead><tr><th>Equipment</th><th>r{compared.rev.rev}</th><th>Current</th><th>Placed Δ</th></tr></thead>
               <tbody>{compared.res.map((d) => <tr key={d.equipmentName} className={d.statusChanged ? 'chgrow' : ''}><th scope="row">{d.equipmentName}</th><td>{d.before ? <StatusBadge status={d.before.status} /> : '—'}</td><td>{d.after ? <StatusBadge status={d.after.status} /> : '—'}</td><td className="mono">{d.placedDelta > 0 ? '+' : ''}{d.placedDelta}</td></tr>)}</tbody></table>
           </div>

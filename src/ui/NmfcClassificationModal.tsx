@@ -4,6 +4,7 @@ import {
   NMFC_STANDARD_TIERS,
   NmfcClassificationInput,
 } from '../engine/nmfcClassification';
+import { IconX } from './icons';
 
 interface NmfcClassificationModalProps {
   isOpen: boolean;
@@ -138,7 +139,7 @@ export const NmfcClassificationModal: React.FC<NmfcClassificationModalProps> = (
               lineHeight: 1,
             }}
           >
-            ✕
+            <IconX size={18} />
           </button>
         </div>
 

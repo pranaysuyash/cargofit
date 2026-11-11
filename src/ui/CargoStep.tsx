@@ -41,7 +41,7 @@ export function CargoStep(p: AppApi) {
     if (r.rows.length === 0) { p.notify('err', `Nothing imported from ${name}: ${r.issues[0]?.message ?? 'no rows'}`); return; }
     setScenario((s) => ({ ...s, rows: mode === 'replace' ? r.rows : [...s.rows, ...r.rows] }));
     const bad = r.issues.filter((i) => i.severity === 'error').length;
-    p.notify(bad ? 'warn' : 'ok', `Imported ${r.rows.length} row(s) from ${name}${bad ? ` — ${bad} cell(s) need repair below` : ''}.`);
+    p.notify(bad ? 'warn' : 'ok', `Imported ${r.rows.length} row(s) from ${name}${bad ? ` (${bad} cell(s) need repair below)` : ''}.`);
   };
 
   const importTable = (fileName: string, sheetName: string, table: string[][], mode: 'replace' | 'append') => {
@@ -53,7 +53,7 @@ export function CargoStep(p: AppApi) {
     }
     setScenario((s) => ({ ...s, rows: mode === 'replace' ? r.rows : [...s.rows, ...r.rows] }));
     const bad = r.issues.filter((i) => i.severity === 'error').length;
-    p.notify(bad ? 'warn' : 'ok', `Imported ${r.rows.length} row(s) from "${sheetName}" in ${fileName}${bad ? ` — ${bad} cell(s) need repair below` : ''}.`);
+    p.notify(bad ? 'warn' : 'ok', `Imported ${r.rows.length} row(s) from "${sheetName}" in ${fileName}${bad ? ` (${bad} cell(s) need repair below)` : ''}.`);
   };
 
   const importEdiText = (name: string, text: string, mode: 'replace' | 'append') => {
@@ -69,7 +69,7 @@ export function CargoStep(p: AppApi) {
       rows: mode === 'replace' ? res.rows : [...s.rows, ...res.rows],
     }));
     const bad = res.issues.filter((i) => i.severity === 'error' || i.severity === 'warning').length;
-    p.notify(bad ? 'warn' : 'ok', `Imported ${res.rows.length} row(s) from EDI 204 tender ${res.bolNumber ? `(${res.bolNumber})` : ''} — ${res.stopsCount} stop(s)${bad ? `, ${bad} warning(s)` : ''}.`);
+    p.notify(bad ? 'warn' : 'ok', `Imported ${res.rows.length} row(s) from EDI 204 tender ${res.bolNumber ? `(${res.bolNumber})` : ''} · ${res.stopsCount} stop(s)${bad ? `, ${bad} warning(s)` : ''}.`);
   };
 
   const onFile = async (f: File | undefined | null) => {
@@ -113,7 +113,7 @@ export function CargoStep(p: AppApi) {
     <section className="step" aria-labelledby="h-cargo">
       <div className="step-head">
         <div><p className="eyebrow">Step 01</p><h1 id="h-cargo">Cargo manifest</h1>
-          <p className="sub">One row per kind of unit. Dimensions and weight are <b>per unit</b>. Anything you leave empty stays unknown — it is never guessed.</p></div>
+          <p className="sub">One row per kind of unit. Dimensions and weight are <b>per unit</b>. Anything you leave empty stays unknown; it is never guessed.</p></div>
         <div className="actions">
           <button className="btn" disabled={disabled} onClick={() => fileRef.current?.click()}>Import CSV / Excel…</button>
           <button className="btn" disabled={disabled} onClick={() => setEdiModalOpen(true)} title="Import ANSI X12 EDI 204 Motor Carrier Load Tender">Import EDI 204…</button>
@@ -129,7 +129,7 @@ export function CargoStep(p: AppApi) {
         <span>Drop a CSV or Excel (.xlsx) file here, or start from an example:</span>
         {SAMPLES.map((s) => (
           <button key={s.id} className="btn sm ghost" disabled={disabled} title={s.blurb}
-            onClick={() => { const sc = sampleScenario(s.id); setScenario((cur) => ({ ...cur, name: sc.name, rows: sc.rows })); setImp(null); p.notify('ok', `Loaded “${s.title}”. Edit anything — it is plain data.`); }}>{s.title}</button>
+            onClick={() => { const sc = sampleScenario(s.id); setScenario((cur) => ({ ...cur, name: sc.name, rows: sc.rows })); setImp(null); p.notify('ok', `Loaded “${s.title}”. Edit any field directly.`); }}>{s.title}</button>
         ))}
         <a className="linkbtn" href="#/app/cargo" onClick={(e) => { e.preventDefault(); const t = SAMPLES[0]; download(t.file, t.csv, 'text/csv'); }}>Download example CSV</a>
       </div>
@@ -137,7 +137,7 @@ export function CargoStep(p: AppApi) {
       {sheetPicker && (
         <div className="panel sheet-picker-panel" role="dialog" aria-modal="true" aria-labelledby="h-sheet-picker">
           <div className="panel-h">
-            <b id="h-sheet-picker">Select Worksheet — {sheetPicker.fileName}</b>
+            <b id="h-sheet-picker">Select Worksheet: {sheetPicker.fileName}</b>
             <button className="btn sm ghost" onClick={() => setSheetPicker(null)}>Cancel</button>
           </div>
           <p className="muted small">This workbook contains {sheetPicker.workbook.sheets.length} sheets. Choose which sheet to import into Cargo Fit:</p>

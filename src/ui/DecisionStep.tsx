@@ -99,7 +99,7 @@ export function DecisionStep(p: AppApi) {
               </tbody>
             </table>
           </div>
-          <p className="muted small">*Sum of placed items’ bounding-box volume ÷ interior volume — not usable space and not a safety measure. n/d = not declared.</p>
+          <p className="muted small">*Sum of placed items’ bounding-box volume ÷ interior volume (not usable space and not a safety measure). n/d = not declared.</p>
 
           {open && (() => {
             const r = results.find((x) => x.equipmentId === open);
@@ -108,7 +108,7 @@ export function DecisionStep(p: AppApi) {
               <div className="panel" role="region" aria-label={`Reasons for ${r.equipmentName}`}>
                 <div className="panel-h"><b>{r.equipmentName}: reasons & what would resolve them</b><button className="btn sm ghost" onClick={() => setOpen(null)}>Close</button></div>
                 <ul className="reasons">
-                  {r.reasons.length === 0 && <li className="info">Nothing blocked this option. Unmodeled checks still apply — see the plan view.</li>}
+                  {r.reasons.length === 0 && <li className="info">Nothing blocked this option. Unmodeled checks still apply (see the plan view).</li>}
                   {r.reasons.map((x, i) => (
                     <li key={i} className={x.severity}><div><b>{x.code.replace(/_/g, ' ').toLowerCase()}</b> {x.message}</div><div className="act">→ {x.action}</div>{x.labels.length > 0 && <div className="muted small">Items: {x.labels.join(', ')}</div>}</li>
                   ))}
@@ -125,7 +125,7 @@ export function DecisionStep(p: AppApi) {
             <ol className="rank">
               {ranking.ranked.map(({ r }, i) => <li key={r.equipmentId}><span className="rk">{i + 1}</span><b>{r.equipmentName}</b> <StatusBadge status={r.status} /></li>)}
             </ol>
-            {ranking.unranked.length > 0 && <p className="muted small">Not ranked (evidence missing for “{CRIT[crit]}”): {ranking.unranked.map((x) => x.r.equipmentName).join(', ')}. {crit === 'cost' ? 'Enter your own cost per option in step 02 — there is no live quote feed.' : crit === 'margin' ? 'Needs a declared payload and no unknown weights.' : ''}</p>}
+            {ranking.unranked.length > 0 && <p className="muted small">Not ranked (evidence missing for “{CRIT[crit]}”): {ranking.unranked.map((x) => x.r.equipmentName).join(', ')}. {crit === 'cost' ? 'Enter your own cost per option in step 02 (no live quote feed).' : crit === 'margin' ? 'Needs a declared payload and no unknown weights.' : ''}</p>}
           </div>
 
           {fleet.allocations.length > 0 && (

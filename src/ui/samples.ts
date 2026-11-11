@@ -15,9 +15,9 @@ export const SAMPLES: Sample[] = [
   { id: 'heavy', title: 'Heavy, low volume', file: 'heavy-low-volume.csv', csv: heavy,
     blurb: 'Steel coils and motor blocks. Plenty of space, but payload is the binding constraint.' },
   { id: 'oversized', title: 'Long and awkward', file: 'oversized-and-rotation.csv', csv: oversized,
-    blurb: 'Pipes, a tall cabinet that must stay upright, sofas, door slabs — rotation rules and door height matter.' },
+    blurb: 'Pipes, a tall cabinet that must stay upright, sofas, door slabs (rotation rules and door height matter).' },
   { id: 'messy', title: 'Messy import (repair demo)', file: 'messy-import.csv', csv: messy,
-    blurb: 'Zeros, negatives, a typo, missing weights, duplicate IDs and mixed units — shows the repair path.' },
+    blurb: 'Zeros, negatives, a typo, missing weights, duplicate IDs and mixed units showing the repair path.' },
 ];
 
 export const equipmentPresets = (): EquipmentProfile[] =>

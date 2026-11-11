@@ -5,6 +5,7 @@ import {
   PackagingStackEnvironment,
   analyzeCartonStacking,
 } from '../engine/cartonCompression';
+import { IconAlertTriangle, IconPackage, IconX } from './icons';
 
 export interface CartonCompressionModalProps {
   isOpen: boolean;
@@ -93,9 +94,9 @@ export const CartonCompressionModal: React.FC<CartonCompressionModalProps> = ({
           <div>
             <h3
               id="carton-compression-title"
-              style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#38bdf8', letterSpacing: '0.02em' }}
+              style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#38bdf8', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: 8 }}
             >
-              📦 Carton Compressive Strength & Stacking Crush Limits
+              <IconPackage size={18} /> Carton Compressive Strength & Stacking Crush Limits
             </h3>
             <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#94a3b8' }}>
               McKee Box Compression Test (BCT) & ASTM D4169 / ISTA 3A Degradation Factor
@@ -114,7 +115,7 @@ export const CartonCompressionModal: React.FC<CartonCompressionModalProps> = ({
               borderRadius: '4px',
             }}
           >
-            ✕
+            <IconX size={18} />
           </button>
         </div>
 
@@ -394,8 +395,8 @@ export const CartonCompressionModal: React.FC<CartonCompressionModalProps> = ({
             </div>
 
             {analysis.warningMessage && (
-              <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#fca5a5', lineHeight: 1.4 }}>
-                ⚠️ {analysis.warningMessage}
+              <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#fca5a5', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <IconAlertTriangle size={14} /> <span>{analysis.warningMessage}</span>
               </p>
             )}
 

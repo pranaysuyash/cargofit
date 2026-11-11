@@ -30,7 +30,7 @@ export function Landing(props: { onSample: (id: string) => void; onBlank: () => 
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">Load planning for mixed cargo</p>
-          <h1>Know what fits — and exactly what that answer rests on.</h1>
+          <h1>Know what fits, and what that answer rests on.</h1>
           <p className="lede">
             Enter or import a manifest, describe the trucks, trailers or containers you could use, and get a computed arrangement
             with reasons for every “no”. Each result says which constraints were modeled, which were not, and whether the engine
@@ -58,7 +58,7 @@ export function Landing(props: { onSample: (id: string) => void; onBlank: () => 
             ['FEASIBLE', 'Fits under modeled constraints', 'A complete arrangement exists and an independent validator confirmed bounds, overlap, orientation, support, payload and door.'],
             ['INFEASIBLE', 'Proven not to fit', 'A sound bound trips: item larger than the interior, door too small, declared weight over payload, or volume over capacity.'],
             ['?', 'No plan found', 'The heuristic ran out of budget. That is not proof of impossibility, and the UI says so.'],
-            ['…', 'Incomplete input', 'A missing dimension or unknown weight stops the claim. Unknown stays unknown — nothing is guessed.'],
+            ['…', 'Incomplete input', 'A missing dimension or unknown weight stops the claim. Unknown stays unknown; nothing is guessed.'],
             ['!', 'Needs physical review', 'Geometry fits, but a limit such as payload or door was never declared for this equipment.'],
           ].map(([g, t, d]) => (
             <article key={t} className="card"><span className="glyph-lg" aria-hidden="true">{g}</span><h3>{t}</h3><p>{d}</p></article>
@@ -69,7 +69,7 @@ export function Landing(props: { onSample: (id: string) => void; onBlank: () => 
       <section className="l-section two">
         <div>
           <h2>The picture is the data</h2>
-          <p>Top, side and isometric views and the loading sequence are drawn from the same placements the validator checks and the export contains. Move or rotate an item by hand and it is re-validated immediately — collisions and unsupported boxes are flagged, not hidden.</p>
+          <p>Top, side and isometric views and the loading sequence are drawn from the same placements the validator checks and the export contains. Move or rotate an item by hand and it is re-validated immediately, so collisions and unsupported boxes are flagged, not hidden.</p>
         </div>
         <div>
           <h2>What it does not claim</h2>

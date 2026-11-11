@@ -4,6 +4,7 @@ import {
   HazmatManifestItem,
   HazmatAuditReport,
 } from '../engine/hazmatSegregation';
+import { IconX } from './icons';
 
 interface HazmatSegregationModalProps {
   hazmatItems: HazmatManifestItem[];
@@ -80,7 +81,7 @@ export const HazmatSegregationModal: React.FC<HazmatSegregationModalProps> = ({
             }}
             aria-label="Close modal"
           >
-            ✕
+            <IconX size={18} />
           </button>
         </div>
 

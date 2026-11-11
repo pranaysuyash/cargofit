@@ -22,7 +22,7 @@ export function EquipmentStep(p: AppApi) {
     <section className="step" aria-labelledby="h-eq">
       <div className="step-head">
         <div><p className="eyebrow">Step 02</p><h1 id="h-eq">Equipment & loading spaces</h1>
-          <p className="sub">Internal dimensions, door opening and declared payload. Presets are <b>illustrative</b> — edit them to match the real vehicle. Leave payload or door empty if unknown: that limit is then reported as <i>not declared</i>, never assumed.</p></div>
+          <p className="sub">Internal dimensions, door opening and declared payload. Presets are <b>illustrative</b>; edit them to match the actual vehicle. Leave payload or door empty if unknown: that limit is then reported as <i>not declared</i>, never assumed.</p></div>
         <div className="actions">
           <button className="btn" disabled={disabled} onClick={() => setScenario((s) => ({ ...s, equipment: [...s.equipment, blankEquipment()] }))}>+ Custom profile</button>
           <button className="btn ghost" disabled={disabled} onClick={() => { setScenario((s) => ({ ...s, equipment: equipmentPresets() })); p.notify('ok', 'Illustrative presets restored.'); }}>Reset presets</button>

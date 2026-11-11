@@ -5,6 +5,7 @@ import {
   TandemSliderConfig,
 } from '../engine/tandemSlider';
 import { VehicleGeometryInput } from '../engine/bridge';
+import { IconX, IconZap } from './icons';
 
 interface TandemSliderModalProps {
   geometryInput: VehicleGeometryInput;
@@ -117,7 +118,7 @@ export const TandemSliderModal: React.FC<TandemSliderModalProps> = ({
             }}
             aria-label="Close modal"
           >
-            ✕
+            <IconX size={18} />
           </button>
         </div>
 
@@ -309,7 +310,7 @@ export const TandemSliderModal: React.FC<TandemSliderModalProps> = ({
               gap: 6,
             }}
           >
-            ⚡ Auto-Solve Legal Pin Position
+            <IconZap size={14} /> Auto-Solve Legal Pin Position
           </button>
 
           <div style={{ display: 'flex', gap: 10 }}>
